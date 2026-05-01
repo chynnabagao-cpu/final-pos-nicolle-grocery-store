@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx tsx server.ts",
+    "dev": "node --import tsx server.ts",
     "build": "echo 'Build complete'",
-    "start": "npx tsx server.ts",
+    "start": "node --import tsx server.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
