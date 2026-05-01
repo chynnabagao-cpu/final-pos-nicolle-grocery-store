@@ -1670,7 +1670,7 @@ const screens = {
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-bold text-white truncate">${p.name}</p>
-                                        <p class="text-[9px] font-black text-red-400 uppercase">Expired: ${p.expiration_date}</p>
+                                        <p class="text-[9px] font-black text-red-400 uppercase">Expired: ${new Date(p.expiration_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                                     </div>
                                 </div>
                             `).join('')}
@@ -1697,7 +1697,7 @@ const screens = {
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs font-bold text-zinc-900 truncate">${p.name}</p>
-                                        <p class="text-[9px] font-black text-amber-600 uppercase">Expires: ${p.expiration_date}</p>
+                                        <p class="text-[9px] font-black text-amber-600 uppercase">Expires: ${new Date(p.expiration_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                                     </div>
                                 </div>
                             `).join('')}
@@ -1776,7 +1776,7 @@ const screens = {
                 <td class="px-6 py-4">
                     ${p.expiration_date ? `
                         <div class="flex flex-col gap-0.5">
-                            <span class="text-xs font-bold ${isExpired ? 'text-red-600' : (isExpiringSoon ? 'text-amber-500' : 'text-zinc-900')}">${p.expiration_date}</span>
+                            <span class="text-xs font-bold ${isExpired ? 'text-red-600' : (isExpiringSoon ? 'text-amber-500' : 'text-zinc-900')}">${new Date(p.expiration_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                             ${isExpired ? `
                                 <span class="text-[8px] font-black text-red-500 uppercase bg-red-50 px-1.5 py-0.5 rounded w-fit">Expired</span>
                             ` : (isExpiringSoon ? `
