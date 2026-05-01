@@ -487,6 +487,17 @@ const ui = {
             }
         }
     },
+    togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+        } else {
+            input.type = 'password';
+            btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+        }
+        lucide.createIcons();
+    },
     notify(message, type = 'success') {
         const container = document.getElementById('notification-container') || (() => {
             const el = document.createElement('div');
@@ -2046,7 +2057,12 @@ const screens = {
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Password ${u ? '(Leave blank to keep current)' : ''}</label>
-                    <input type="password" id="u-password" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <div class="relative">
+                        <input type="password" id="u-password" class="w-full h-11 pl-3 pr-10 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                        <button type="button" onclick="ui.togglePassword('u-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Role</label>

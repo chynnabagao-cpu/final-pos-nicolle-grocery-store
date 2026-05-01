@@ -57,7 +57,10 @@
                         <label class="text-sm font-medium text-zinc-500">Password</label>
                         <div class="relative">
                             <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
-                            <input type="password" id="login-password" required class="w-full pl-10 pr-3 py-2 bg-white border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" placeholder="••••••••">
+                            <input type="password" id="login-password" required class="w-full pl-10 pr-10 py-2 bg-white border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" placeholder="••••••••">
+                            <button type="button" onclick="ui.togglePassword('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900 transition-colors">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
                         </div>
                     </div>
                     <div id="login-error" class="hidden text-xs font-medium text-red-500 bg-red-50 p-3 rounded-lg flex items-center gap-2 border border-red-100">
