@@ -1,0 +1,148 @@
+<!-- 
+    POS System Main Entry Point (SPA Shell)
+    This file defines the basic layout structure including the Auth screen,
+    Sidebar Navigation, and the dynamic Content Area.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lorna's Store - Modern POS</title>
+    <!-- Resource Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* Base styles and custom utilities */
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .active-nav { background-color: #F1F5F9; color: #0F172A; }
+        #sidebar { transition: transform 0.3s ease-in-out; }
+
+        /* Animation Helpers */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+    </style>
+</head>
+<body class="text-zinc-900 overflow-hidden h-screen bg-zinc-50">
+    <div id="app" class="h-full flex flex-col md:flex-row overflow-hidden">
+        <!-- Section 1: Auth Screen (Login) -->
+        <div id="auth-screen" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-[#F1F5F9] p-6">
+            <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-zinc-200">
+                <div class="text-center mb-8">
+                    <div class="w-12 h-12 bg-zinc-900 text-white rounded-xl flex items-center justify-center text-xl font-black mx-auto mb-4">POS</div>
+                    <h1 class="text-2xl font-bold tracking-tight">System Login</h1>
+                    <p class="text-zinc-500 text-sm mt-1">Lorna's Store Management</p>
+                </div>
+                <form id="login-form" class="space-y-4">
+                    <div class="space-y-1.5 w-full">
+                        <label class="text-sm font-medium text-zinc-500">Username</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
+                            <input type="text" id="login-username" required class="w-full pl-10 pr-3 py-2 bg-white border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" placeholder="e.g. admin">
+                        </div>
+                    </div>
+                    <div class="space-y-1.5 w-full">
+                        <label class="text-sm font-medium text-zinc-500">Password</label>
+                        <div class="relative">
+                            <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
+                            <input type="password" id="login-password" required class="w-full pl-10 pr-3 py-2 bg-white border border-zinc-200 rounded-lg outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div id="login-error" class="hidden text-xs font-medium text-red-500 bg-red-50 p-3 rounded-lg flex items-center gap-2 border border-red-100">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                        <span id="login-error-text"></span>
+                    </div>
+                    <button type="submit" id="login-submit-btn" class="w-full h-12 bg-zinc-900 text-white font-bold rounded-lg hover:bg-zinc-800 transition-all active:scale-95 mt-2 flex items-center justify-center gap-2">
+                        <span>Sign In</span>
+                    </button>
+                    <div class="text-center pt-4">
+                        <p class="text-[10px] text-zinc-400 font-medium uppercase tracking-widest">Master Credentials</p>
+                        <p class="text-[10px] text-zinc-500 mt-1">Username: <span class="font-bold text-zinc-700">admin</span> • Password: <span class="font-bold text-zinc-700">admin123</span></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Section 2: Main Layout (Sidebar + Content) -->
+        <div id="main-layout" class="hidden w-full h-full flex flex-col md:flex-row overflow-hidden">
+            <!-- Sidebar with Mobile Handling -->
+            <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-zinc-200 flex flex-col transition-transform -translate-x-full md:relative md:translate-x-0">
+                <div class="p-6 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center font-black text-xs">POS</div>
+                        <span id="store-name-display" class="font-bold tracking-tight text-lg text-zinc-900 uppercase">LORNA'S</span>
+                    </div>
+                    <button id="close-sidebar" class="md:hidden p-2 text-zinc-400 hover:text-zinc-900">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <nav class="flex-1 px-3 space-y-1 overflow-y-auto" id="nav-items">
+                    <!-- Nav items will be dynamic based on role -->
+                </nav>
+                <div class="p-4 border-t border-zinc-200">
+                    <button id="logout-btn" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Overlay for Mobile Sidebar -->
+            <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/50 z-40 md:hidden"></div>
+
+            <!-- Application Header -->
+            <div class="flex-1 flex flex-col min-w-0 bg-zinc-50 overflow-hidden">
+                <!-- Header with Hamburger -->
+                <header class="h-16 bg-white border-b border-zinc-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
+                    <div class="flex items-center gap-3">
+                        <button id="open-sidebar" class="md:hidden p-2 -ml-2 text-zinc-600">
+                            <i data-lucide="menu" class="w-6 h-6"></i>
+                        </button>
+                        <h1 id="screen-title" class="text-lg md:text-xl font-bold tracking-tight capitalize truncate max-w-[200px] md:max-w-none">Dashboard</h1>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 md:gap-4">
+                        <div class="hidden sm:flex flex-col items-end">
+                            <span id="user-fullname" class="text-sm font-bold truncate max-w-[120px]">User</span>
+                            <span id="user-role" class="text-[10px] text-zinc-400 uppercase tracking-widest font-black">Role</span>
+                        </div>
+                        <div class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200">
+                            <i data-lucide="user" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar" id="screen-content">
+                    <!-- Screens will be rendered here -->
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Global Modal Container -->
+    <div id="modal-container" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div id="modal-overlay" class="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"></div>
+        <div id="modal-content" class="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 lg:p-8 animate-in fade-in zoom-in duration-200">
+            <!-- Modal inner content will be injected here -->
+        </div>
+    </div>
+
+    <!-- Main Application Logic Bundle -->
+    <script src="/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "Lorna's Store POS",
+  "description": "A professional Grocery Store Point of Sale system with inventory management, real-time alerts, and advanced sales analytics.",
+  "requestFramePermissions": ["camera"]
+}
