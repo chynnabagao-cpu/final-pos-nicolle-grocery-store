@@ -100,11 +100,11 @@ async function connectToDatabase() {
   try {
     console.log("🔌 Connecting to MySQL Database...");
     pool = mysql.createPool({
-      host: process.env.MYSQL_HOST || 'localhost',
-      user: process.env.MYSQL_USER || 'root',
-      password: process.env.MYSQL_PASSWORD || '',
-      database: process.env.MYSQL_DATABASE || 'lorna_pos',
-      port: Number(process.env.MYSQL_PORT || 3306),
+      host: process.env.MYSQL_HOST || 'mysql-30c9cb90-mysql-lab-project-bagao1.e.aivencloud.com',
+      user: process.env.MYSQL_USER || 'avnadmin',
+      password: process.env.MYSQL_PASSWORD || 'AVNS_wBo_Rf_Fv0rWXVunw5q',
+      database: process.env.MYSQL_DATABASE || 'defaultdb',
+      port: Number(process.env.MYSQL_PORT || 18240),
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
