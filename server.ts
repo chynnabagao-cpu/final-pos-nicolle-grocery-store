@@ -477,13 +477,23 @@ app.post("/api/sales", authenticate, async (req, res) => {
 });
 
 app.get("/api/sales", authenticate, async (req, res) => {
+  const { date } = req.query;
   try {
-    const sales = await db.query(`
+    let query = `
       SELECT s.*, u.full_name as user_name 
       FROM sales s 
       LEFT JOIN users u ON s.user_id = u.id 
-      ORDER BY s.created_at DESC
-    `);
+    `;
+    const params = [];
+    
+    if (date) {
+      query += " WHERE DATE(s.created_at) = ? ";
+      params.push(date);
+    }
+    
+    query += " ORDER BY s.created_at DESC";
+    
+    const sales = await db.query(query, params);
     res.json(sales);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -623,13 +633,18 @@ app.put("/api/settings/store", authenticate, restrictTo('admin'), async (req, re
 
 // Reports
 app.get("/api/reports/dashboard", authenticate, async (req, res) => {
+  const { date } = req.query;
+  const targetDate = date ? date.toString() : null;
+  const dateClause = targetDate ? "DATE(created_at) = ?" : "DATE(created_at) = CURDATE()";
+  const params = targetDate ? [targetDate] : [];
+
   try {
-    const todaySales = await db.get<any>("SELECT SUM(total_amount) as total FROM sales WHERE DATE(created_at) = CURDATE()");
-    const totalOrders = await db.get<any>("SELECT COUNT(*) as count FROM sales WHERE DATE(created_at) = CURDATE()");
+    const todaySales = await db.get<any>(`SELECT SUM(total_amount) as total FROM sales WHERE ${dateClause}`, params);
+    const totalOrders = await db.get<any>(`SELECT COUNT(*) as count FROM sales WHERE ${dateClause}`, params);
     const lowStock = await db.get<any>("SELECT COUNT(*) as count FROM products WHERE stock_quantity <= min_stock_level");
     const expiringSoon = await db.get<any>("SELECT COUNT(*) as count FROM products WHERE expiration_date IS NOT NULL AND expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)");
 
-    // Sales chart
+    // Sales chart (always last 7 days regardless of filter)
     const salesChart = await db.query(`
       SELECT DATE(created_at) as date, SUM(total_amount) as amount 
       FROM sales 
@@ -638,26 +653,26 @@ app.get("/api/reports/dashboard", authenticate, async (req, res) => {
       ORDER BY date ASC
     `);
 
-    // Top selling products (today)
+    // Top selling products (for selected date)
     const topProducts = await db.query(`
       SELECT p.name, SUM(si.quantity) as total_qty, SUM(si.subtotal) as total_revenue
       FROM sale_items si
       JOIN products p ON si.product_id = p.id
       JOIN sales s ON si.sale_id = s.id
-      WHERE DATE(s.created_at) = CURDATE()
+      WHERE ${targetDate ? "DATE(s.created_at) = ?" : "DATE(s.created_at) = CURDATE()"}
       GROUP BY p.id
       ORDER BY total_qty DESC
       LIMIT 10
-    `);
+    `, params);
 
-    // Recent Sales
+    // Recent Sales (for selected date)
     const recentSales = await db.query(`
       SELECT s.*, u.full_name as cashier
       FROM sales s
       LEFT JOIN users u ON s.user_id = u.id
+      WHERE ${targetDate ? "DATE(s.created_at) = ?" : "DATE(s.created_at) = CURDATE()"}
       ORDER BY s.created_at DESC
-      LIMIT 10
-    `);
+    `, params);
 
     res.json({
       stats: {
@@ -716,8 +731,18 @@ app.get("/api/reports/analytics", authenticate, restrictTo('admin', 'user'), asy
 // Discounts
 app.get("/api/discounts", authenticate, async (req, res) => {
   try {
-    const result = await db.query("SELECT * FROM discounts");
-    res.json(result);
+    // Return all discounts but include a calculated field for effective status
+    const discounts = await db.query<any>(`
+      SELECT *,
+      CASE 
+        WHEN is_active = 0 THEN 'inactive'
+        WHEN start_date IS NOT NULL AND start_date > CURDATE() THEN 'scheduled'
+        WHEN end_date IS NOT NULL AND end_date < CURDATE() THEN 'expired'
+        ELSE 'active'
+      END as effective_status
+      FROM discounts
+    `);
+    res.json(discounts);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

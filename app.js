@@ -41,6 +41,8 @@ const state = {
     offlineQueue: JSON.parse(localStorage.getItem('offline_queue')) || [], // Sales waiting for sync
     isOffline: !navigator.onLine,                         // Current network status
     dashboardStats: null,                                 // Cached dashboard metrics
+    dashboardDate: new Date().toISOString().split('T')[0], // Selected date for dashboard stats
+    reportsDate: new Date().toISOString().split('T')[0],   // Selected date for reports filtering
     activeCategory: null,                                 // Selected category filter in terminal
     reportsData: null,                                    // Data for reports screen
     inventorySearchQuery: ''                              // Search filter for inventory view
@@ -603,15 +605,32 @@ const screens = {
         root.innerHTML = '<div class="animate-pulse flex items-center justify-center p-20 text-zinc-400">Loading summary...</div>';
         
         try {
-            const res = await api.get('/reports/dashboard');
+            const dateQuery = state.dashboardDate ? `?date=${state.dashboardDate}` : '';
+            const res = await api.get(`/reports/dashboard${dateQuery}`);
             const data = res.data;
             state.dashboardStats = data;
             
             root.innerHTML = `
                 <div class="space-y-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-black text-zinc-900">Store Performance</h2>
+                            <p class="text-sm text-zinc-500 font-medium">${state.dashboardDate === new Date().toISOString().split('T')[0] ? "Today's" : new Date(state.dashboardDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} real-time overview</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <i data-lucide="calendar" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"></i>
+                                <input type="date" id="dashboard-date-filter" 
+                                    value="${state.dashboardDate}" 
+                                    onchange="screens.updateDashboardDate(this.value)"
+                                    class="pl-9 pr-4 py-2 bg-white border border-zinc-200 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        ${this.card("Today's Sales", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900', 'banknote')}
-                        ${this.card("Total Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900', 'shopping-bag')}
+                        ${this.card(state.dashboardDate === new Date().toISOString().split('T')[0] ? "Today's Sales" : "Sales Total", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900', 'banknote')}
+                        ${this.card("Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900', 'shopping-bag')}
                         ${this.card("Low Stock", data.stats?.lowStock?.count || 0, (data.stats?.lowStock?.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900', 'alert-triangle')}
                         ${this.card("Expiring Soon", data.stats?.expiringSoon?.count || 0, (data.stats?.expiringSoon?.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900', 'calendar-x')}
                     </div>
@@ -628,7 +647,7 @@ const screens = {
                             <div class="bg-white p-4 md:p-6 rounded-2xl border border-zinc-200 shadow-sm">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="text-sm md:text-base font-bold text-zinc-900 flex items-center gap-2">
-                                        <i data-lucide="clock" class="w-4 md:w-5 h-4 md:h-5 text-zinc-400"></i> Recent Sales
+                                        <i data-lucide="clock" class="w-4 md:w-5 h-4 md:h-5 text-zinc-400"></i> ${state.dashboardDate === new Date().toISOString().split('T')[0] ? "Today's Sales" : "Sales Records"}
                                     </h3>
                                     <button onclick="router.navigate('reports')" class="text-[9px] md:text-xs font-bold text-zinc-400 hover:text-zinc-900 transition-colors uppercase tracking-widest">View All</button>
                                 </div>
@@ -651,11 +670,13 @@ const screens = {
                                                     </td>
                                                     <td class="py-3 px-4 text-xs font-semibold text-zinc-500">${sale.cashier || 'System'}</td>
                                                     <td class="py-3 px-4 text-sm font-black text-zinc-900">₱${Number(sale.total_amount).toFixed(2)}</td>
-                                                    <td class="py-3 px-4 text-[10px] font-bold text-zinc-400 uppercase">${new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                                    <td class="py-3 px-4 text-[10px] font-bold text-zinc-400 uppercase">
+                                                        ${state.dashboardDate !== new Date().toISOString().split('T')[0] ? new Date(sale.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' - ' : ''}${new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
                                                 </tr>
                                             `).join('') : `
                                                 <tr>
-                                                    <td colspan="4" class="py-10 text-center text-zinc-400 italic text-sm">No sales recorded today</td>
+                                                    <td colspan="4" class="py-10 text-center text-zinc-400 italic text-sm">No sales recorded for this date</td>
                                                 </tr>
                                             `}
                                         </tbody>
@@ -713,14 +734,26 @@ const screens = {
             this.initCharts(data);
         } catch (err) {
             console.error(err);
-            root.innerHTML = `<div class="p-10 text-center text-red-500 font-bold uppercase tracking-widest bg-red-50 m-6 rounded-2xl border border-red-100 flex flex-col items-center gap-4">
-                <i data-lucide="alert-circle" class="w-10 h-10"></i>
-                <span>Failed to load dashboard summary</span>
-                <p class="text-[10px] font-medium text-red-400">${err.message}</p>
-                <button onclick="screens.renderDashboard()" class="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-black">RETRY CONNECTION</button>
-            </div>`;
+            root.innerHTML = `
+                <div class="flex flex-col items-center justify-center p-20 text-center">
+                    <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4"><i data-lucide="alert-circle" class="w-8 h-8"></i></div>
+                    <h3 class="text-lg font-bold text-zinc-900">Connection Failed</h3>
+                    <p class="text-sm text-zinc-500 max-w-xs mb-6">We couldn't connect to the server to fetch live dashboard stats.</p>
+                    <button onclick="screens.renderDashboard()" class="px-6 py-2 bg-zinc-900 text-white rounded-xl text-sm font-bold hover:bg-zinc-800 transition-all active:scale-95 shadow-lg shadow-zinc-900/20">Retry Connection</button>
+                </div>
+            `;
             lucide.createIcons();
         }
+    },
+
+    updateDashboardDate(date) {
+        state.dashboardDate = date;
+        this.renderDashboard();
+    },
+
+    updateReportsDate(date) {
+        state.reportsDate = date;
+        this.renderReports();
     },
     card(label, value, colorClass, icon) {
         return `
@@ -747,7 +780,7 @@ const screens = {
         new Chart(ctx, {
             type: 'line',
             data: {
-                labels: (data.salesChart || []).map(d => d.date),
+                labels: (data.salesChart || []).map(d => new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
                 datasets: [{
                     label: 'Daily Sales',
                     data: (data.salesChart || []).map(d => d.amount),
@@ -900,13 +933,7 @@ const screens = {
         
         let subtotal = 0;
         let promoDiscountTotal = 0;
-        const now = new Date();
-        const activePromos = (state.discounts || []).filter(d => {
-            if (d.is_active === 0) return false;
-            if (d.start_date && new Date(d.start_date + 'T00:00:00') > now) return false;
-            if (d.end_date && new Date(d.end_date + 'T23:59:59') < now) return false;
-            return true;
-        });
+        const activePromos = (state.discounts || []).filter(d => d.effective_status === 'active');
 
         const saleItems = state.cart.map(item => {
             let itemPromoDiscount = 0;
@@ -1355,13 +1382,7 @@ const screens = {
         
         let subtotal = 0;
         let promoDiscountTotal = 0;
-        const now = new Date();
-        const activePromos = (state.discounts || []).filter(d => {
-            if (d.is_active === 0) return false;
-            if (d.start_date && new Date(d.start_date + 'T00:00:00') > now) return false;
-            if (d.end_date && new Date(d.end_date + 'T23:59:59') < now) return false;
-            return true;
-        });
+        const activePromos = (state.discounts || []).filter(d => d.effective_status === 'active');
 
         state.cart.forEach(item => {
             // Calculate discount for this specific item
@@ -1499,9 +1520,7 @@ const screens = {
     openCartDiscountModal() {
         const now = new Date();
         const activePromos = (state.discounts || []).filter(d => {
-            if (d.is_active === 0) return false;
-            if (d.start_date && new Date(d.start_date + 'T00:00:00') > now) return false;
-            if (d.end_date && new Date(d.end_date + 'T23:59:59') < now) return false;
+            if (d.effective_status !== 'active') return false;
             return state.cart.some(item => {
                 if (d.target_type === 'all') return true;
                 if (d.target_type === 'category' && item.category_id === parseInt(d.target_id || 0)) return true;
@@ -2268,7 +2287,15 @@ const screens = {
                                 <div class="p-6 flex-1 space-y-4">
                                     <div class="flex justify-between items-start">
                                         <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
-                                        <span class="text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter ${d.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-400'}">${d.is_active ? 'Active' : 'Inactive'}</span>
+                                        <div class="flex flex-col items-end gap-1">
+                                            <span class="text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter 
+                                                ${d.effective_status === 'active' ? 'bg-emerald-50 text-emerald-600' : 
+                                                  d.effective_status === 'scheduled' ? 'bg-blue-50 text-blue-600' : 
+                                                  d.effective_status === 'expired' ? 'bg-red-50 text-red-600' : 
+                                                  'bg-zinc-100 text-zinc-400'}">
+                                                ${d.effective_status}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div>
                                         <h4 class="font-black text-xl text-zinc-900">${d.name}</h4>
@@ -2420,8 +2447,9 @@ const screens = {
         root.innerHTML = '<div class="p-10 text-center text-zinc-400 animate-pulse">Generating analytical data...</div>';
         try {
             // Simultaneous fetch for sales logs and processed analytics
+            const dateQuery = state.reportsDate ? `?date=${state.reportsDate}` : '';
             const [salesRes, analyticsRes] = await Promise.all([
-                api.get('/sales'),
+                api.get(`/sales${dateQuery}`),
                 api.get('/reports/analytics')
             ]);
             
@@ -2506,7 +2534,16 @@ const screens = {
 
                     <!-- Tabular Sales History -->
                     <div class="space-y-4">
-                        <h3 class="font-bold text-zinc-900 px-2 text-lg">Detailed Sales History</h3>
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+                            <h3 class="font-bold text-zinc-900 text-lg">Detailed Sales History</h3>
+                            <div class="flex items-center gap-2">
+                                <label for="reports-date-filter" class="text-xs font-bold text-zinc-400 uppercase">Filter by Date:</label>
+                                <input type="date" id="reports-date-filter" 
+                                    value="${state.reportsDate}" 
+                                    onchange="screens.updateReportsDate(this.value)"
+                                    class="px-4 py-2 bg-white border border-zinc-200 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all">
+                            </div>
+                        </div>
                         <div class="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
                             <div class="overflow-auto max-h-[600px]">
                                 <table class="w-full text-left min-w-[600px] md:min-w-[800px]">
