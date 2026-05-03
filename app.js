@@ -610,7 +610,7 @@ const screens = {
             root.innerHTML = `
                 <div class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        ${this.card("Today's Sales", `â‚±${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900')}
+                        ${this.card("Today's Sales", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900')}
                         ${this.card("Total Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900')}
                         ${this.card("Low Stock", data.stats?.lowStock?.count || 0, (data.stats?.lowStock?.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900')}
                         ${this.card("Expiring Soon", data.stats?.expiringSoon?.count || 0, (data.stats?.expiringSoon?.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900')}
@@ -730,10 +730,10 @@ const screens = {
                     <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar"></div>
                     <div class="p-4 lg:p-6 bg-zinc-50 border-t border-zinc-100 space-y-4">
                         <div class="space-y-2">
-                            <div class="flex justify-between text-sm text-zinc-500 font-medium"><span>Subtotal</span> <span id="cart-subtotal" class="text-zinc-900">â‚±0.00</span></div>
+                            <div class="flex justify-between text-sm text-zinc-500 font-medium"><span>Subtotal</span> <span id="cart-subtotal" class="text-zinc-900">₱0.00</span></div>
                             <div id="cart-discount-row" class="hidden flex justify-between text-sm text-amber-600 font-bold">
                                 <span class="flex items-center gap-1">Discount <button onclick="screens.openCartDiscountModal()" class="text-[10px] bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Edit</button></span> 
-                                <span id="cart-discount">-â‚±0.00</span>
+                                <span id="cart-discount">-₱0.00</span>
                             </div>
                             <div id="apply-discount-placeholder" class="flex justify-center py-1">
                                 <button onclick="screens.openCartDiscountModal()" class="text-[10px] font-black text-zinc-400 uppercase tracking-widest hover:text-zinc-900 transition-colors flex items-center gap-1">
@@ -742,9 +742,9 @@ const screens = {
                             </div>
                             <div id="cart-promo-discount-row" class="hidden flex justify-between text-sm text-emerald-600 font-bold italic">
                                 <span>Promotional Savings</span>
-                                <span id="cart-promo-discount">-â‚±0.00</span>
+                                <span id="cart-promo-discount">-₱0.00</span>
                             </div>
-                            <div class="pt-3 border-t border-zinc-200 flex justify-between font-black text-xl lg:text-2xl text-zinc-900"><span>Total</span> <span id="cart-total">â‚±0.00</span></div>
+                            <div class="pt-3 border-t border-zinc-200 flex justify-between font-black text-xl lg:text-2xl text-zinc-900"><span>Total</span> <span id="cart-total">₱0.00</span></div>
                         </div>
                         <button id="checkout-btn" disabled class="w-full h-12 md:h-14 bg-zinc-900 text-white font-bold rounded-xl text-lg hover:bg-zinc-800 shadow-lg shadow-zinc-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale">Process Payment</button>
                     </div>
@@ -756,7 +756,7 @@ const screens = {
                         <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center"><i data-lucide="shopping-cart" class="w-5 h-5"></i></div>
                         <div>
                             <p class="text-[10px] text-white/50 font-bold uppercase tracking-widest leading-none">Amount Due</p>
-                            <p id="floating-cart-total" class="text-lg font-black leading-none mt-1">â‚±0.00</p>
+                            <p id="floating-cart-total" class="text-lg font-black leading-none mt-1">₱0.00</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3 font-bold text-sm h-10 px-4 bg-white/10 rounded-xl">
@@ -852,7 +852,7 @@ const screens = {
                 <!-- High-visibility Total Due banner -->
                 <div class="p-6 bg-zinc-900 text-white rounded-3xl text-center shadow-xl shadow-zinc-900/10">
                     <p class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Total Amount Due</p>
-                    <p class="text-4xl font-black">â‚±${total.toFixed(2)}</p>
+                    <p class="text-4xl font-black">₱${total.toFixed(2)}</p>
                 </div>
 
                 <!-- Toggle buttons for payment source -->
@@ -884,7 +884,7 @@ const screens = {
                         </div>
                         <div class="flex justify-between items-center px-2 py-1">
                             <span class="text-xs font-black text-zinc-400 uppercase tracking-widest">Change Due</span>
-                            <span id="change-display" class="text-2xl font-black text-emerald-500">â‚±0.00</span>
+                            <span id="change-display" class="text-2xl font-black text-emerald-500">₱0.00</span>
                         </div>
                     </div>
 
@@ -922,7 +922,7 @@ const screens = {
                 if (selectedMethod === 'cash') {
                     cash_received = parseFloat(cashReceivedField.value) || 0;
                     if (cash_received < total) {
-                        throw new Error(`Insufficient cash. Minimum required: â‚±${total.toFixed(2)}`);
+                        throw new Error(`Insufficient cash. Minimum required: ₱${total.toFixed(2)}`);
                     }
                     change_given = cash_received - total;
                 } else {
@@ -1018,7 +1018,7 @@ const screens = {
         cashInput.oninput = () => {
             const val = parseFloat(cashInput.value) || 0;
             const change = Math.max(0, val - total);
-            changeDisplay.innerText = `â‚±${change.toFixed(2)}`;
+            changeDisplay.innerText = `₱${change.toFixed(2)}`;
         };
     },
     // Resets the POS state after a successful (or offline queued) transaction
@@ -1065,7 +1065,7 @@ const screens = {
                             <div class="flex justify-between text-[11px] leading-tight">
                                 <span class="w-1/2 truncate font-medium">${product ? product.name : 'Unknown Product'}</span>
                                 <span class="w-1/4 text-center">${item.quantity}</span>
-                                <span class="w-1/4 text-right">â‚±${(item.unit_price * item.quantity).toFixed(2)}</span>
+                                <span class="w-1/4 text-right">₱${(item.unit_price * item.quantity).toFixed(2)}</span>
                             </div>
                         `;
                     }).join('')}
@@ -1073,17 +1073,17 @@ const screens = {
 
                 <!-- Financial Summary -->
                 <div class="border-t border-dashed border-zinc-200 pt-3 space-y-1">
-                    <div class="flex justify-between text-[11px]"><span>Subtotal:</span> <span>â‚±${(Number(data.total_amount) + Number(data.discount_amount)).toFixed(2)}</span></div>
-                    ${data.discount_amount > 0 ? `<div class="flex justify-between text-[11px] text-emerald-600 font-bold"><span>Total Discount:</span> <span>-â‚±${Number(data.discount_amount).toFixed(2)}</span></div>` : ''}
-                    <div class="flex justify-between text-lg font-black pt-2 uppercase"><span>Grand Total:</span> <span>â‚±${Number(data.total_amount).toFixed(2)}</span></div>
+                    <div class="flex justify-between text-[11px]"><span>Subtotal:</span> <span>₱${(Number(data.total_amount) + Number(data.discount_amount)).toFixed(2)}</span></div>
+                    ${data.discount_amount > 0 ? `<div class="flex justify-between text-[11px] text-emerald-600 font-bold"><span>Total Discount:</span> <span>-₱${Number(data.discount_amount).toFixed(2)}</span></div>` : ''}
+                    <div class="flex justify-between text-lg font-black pt-2 uppercase"><span>Grand Total:</span> <span>₱${Number(data.total_amount).toFixed(2)}</span></div>
                 </div>
 
                 <!-- Payment Recap -->
                 <div class="pt-2 text-[10px] space-y-1">
                     <div class="flex justify-between uppercase"><span>Payment Method:</span> <span class="font-bold">${data.payment_method}</span></div>
                     ${data.payment_method === 'cash' ? `
-                        <div class="flex justify-between"><span>Cash Tendered:</span> <span>â‚±${Number(data.cash_received || 0).toFixed(2)}</span></div>
-                        <div class="flex justify-between"><span>Change:</span> <span class="font-bold text-emerald-600">â‚±${Number(data.change_given || 0).toFixed(2)}</span></div>
+                        <div class="flex justify-between"><span>Cash Tendered:</span> <span>₱${Number(data.cash_received || 0).toFixed(2)}</span></div>
+                        <div class="flex justify-between"><span>Change:</span> <span class="font-bold text-emerald-600">₱${Number(data.change_given || 0).toFixed(2)}</span></div>
                     ` : ''}
                 </div>
 
@@ -1201,7 +1201,7 @@ const screens = {
                 <p class="font-bold text-zinc-900 truncate">${p.name}</p>
                 <p class="text-zinc-400 text-xs mb-2">${p.barcode}</p>
                 <div class="flex items-center justify-between">
-                    <span class="font-black text-zinc-900">â‚±${Number(p.selling_price).toFixed(2)}</span>
+                    <span class="font-black text-zinc-900">₱${Number(p.selling_price).toFixed(2)}</span>
                     <span class="text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${p.stock_quantity > 10 ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}">${p.stock_quantity} pts</span>
                 </div>
             `;
@@ -1292,8 +1292,8 @@ const screens = {
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold truncate">${item.name}</p>
                     <div class="flex items-center gap-2">
-                        <p class="text-xs ${itemPromoDiscount > 0 ? 'text-zinc-400 line-through' : 'text-zinc-400 font-medium'}">â‚±${Number(item.selling_price).toFixed(2)}</p>
-                        ${itemPromoDiscount > 0 ? `<p class="text-xs text-emerald-600 font-black">â‚±${((itemLineTotal - itemPromoDiscount) / item.quantity).toFixed(2)}</p>` : ''}
+                        <p class="text-xs ${itemPromoDiscount > 0 ? 'text-zinc-400 line-through' : 'text-zinc-400 font-medium'}">₱${Number(item.selling_price).toFixed(2)}</p>
+                        ${itemPromoDiscount > 0 ? `<p class="text-xs text-emerald-600 font-black">₱${((itemLineTotal - itemPromoDiscount) / item.quantity).toFixed(2)}</p>` : ''}
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -1328,7 +1328,7 @@ const screens = {
         const totalQty = state.cart.reduce((s, i) => s + i.quantity, 0);
         
         document.getElementById('cart-count').innerText = `${totalQty} Items`;
-        document.getElementById('cart-subtotal').innerText = `â‚±${subtotal.toFixed(2)}`;
+        document.getElementById('cart-subtotal').innerText = `₱${subtotal.toFixed(2)}`;
         
         const discountRow = document.getElementById('cart-discount-row');
         const promoRow = document.getElementById('cart-promo-discount-row');
@@ -1338,7 +1338,7 @@ const screens = {
             if (manualDiscount > 0) {
                 discountRow.classList.remove('hidden');
                 discountPlaceholder.classList.add('hidden');
-                document.getElementById('cart-discount').innerText = `-â‚±${manualDiscount.toFixed(2)}`;
+                document.getElementById('cart-discount').innerText = `-₱${manualDiscount.toFixed(2)}`;
             } else {
                 discountRow.classList.add('hidden');
                 discountPlaceholder.classList.remove('hidden');
@@ -1348,13 +1348,13 @@ const screens = {
         if (promoRow) {
             if (promoDiscountTotal > 0) {
                 promoRow.classList.remove('hidden');
-                document.getElementById('cart-promo-discount').innerText = `-â‚±${promoDiscountTotal.toFixed(2)}`;
+                document.getElementById('cart-promo-discount').innerText = `-₱${promoDiscountTotal.toFixed(2)}`;
             } else {
                 promoRow.classList.add('hidden');
             }
         }
 
-        document.getElementById('cart-total').innerText = `â‚±${total.toFixed(2)}`;
+        document.getElementById('cart-total').innerText = `₱${total.toFixed(2)}`;
         
         // Mobile UI Updates
         const badge = document.getElementById('mobile-cart-badge');
@@ -1367,7 +1367,7 @@ const screens = {
         const floatingTotal = document.getElementById('floating-cart-total');
         const floatingCount = document.getElementById('floating-cart-count');
         if (floatingBar && floatingTotal && floatingCount) {
-            floatingTotal.innerText = `â‚±${total.toFixed(2)}`;
+            floatingTotal.innerText = `₱${total.toFixed(2)}`;
             floatingCount.innerText = `${totalQty} items`;
             
             // Only show floating bar on mobile if drawer is NOT open
@@ -1417,7 +1417,7 @@ const screens = {
                             ${activePromos.map(p => `
                                 <div class="flex justify-between items-center bg-white/50 p-2 rounded-xl text-xs">
                                     <span class="font-bold text-zinc-700">${p.name}</span>
-                                    <span class="font-black text-emerald-600">${p.type === 'percentage' ? `${p.value}% OFF` : `â‚±${Number(p.value).toFixed(2)} OFF`}</span>
+                                    <span class="font-black text-emerald-600">${p.type === 'percentage' ? `${p.value}% OFF` : `₱${Number(p.value).toFixed(2)} OFF`}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -1432,7 +1432,7 @@ const screens = {
                 <div class="space-y-1.5">
                     <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Discount Method</label>
                     <div id="discount-type-container" data-type="${state.cartDiscountType || 'fixed'}" class="grid grid-cols-2 gap-2">
-                        <button id="discount-type-fixed" onclick="this.parentElement.dataset.type='fixed'; this.className='h-11 rounded-xl bg-zinc-900 text-white font-bold text-xs'; document.getElementById('discount-type-percent').className='h-11 rounded-xl bg-zinc-100 text-zinc-500 font-bold text-xs'; screens.updateCartDiscountByInput()" class="h-11 rounded-xl ${state.cartDiscountType === 'fixed' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'} font-bold text-xs">Fixed Amount (â‚±)</button>
+                        <button id="discount-type-fixed" onclick="this.parentElement.dataset.type='fixed'; this.className='h-11 rounded-xl bg-zinc-900 text-white font-bold text-xs'; document.getElementById('discount-type-percent').className='h-11 rounded-xl bg-zinc-100 text-zinc-500 font-bold text-xs'; screens.updateCartDiscountByInput()" class="h-11 rounded-xl ${state.cartDiscountType === 'fixed' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'} font-bold text-xs">Fixed Amount (₱)</button>
                         <button id="discount-type-percent" onclick="this.parentElement.dataset.type='percent'; this.className='h-11 rounded-xl bg-zinc-900 text-white font-bold text-xs'; document.getElementById('discount-type-fixed').className='h-11 rounded-xl bg-zinc-100 text-zinc-500 font-bold text-xs'; screens.updateCartDiscountByInput()" class="h-11 rounded-xl ${state.cartDiscountType === 'percent' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500'} font-bold text-xs">Percentage (%)</button>
                     </div>
                 </div>
@@ -1788,8 +1788,8 @@ const screens = {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex flex-col">
-                        <span class="font-bold text-zinc-900">â‚±${Number(p.selling_price).toFixed(2)}</span>
-                        ${p.cost_price ? `<span class="text-[10px] text-zinc-400">Cost: â‚±${Number(p.cost_price).toFixed(2)}</span>` : ''}
+                        <span class="font-bold text-zinc-900">₱${Number(p.selling_price).toFixed(2)}</span>
+                        ${p.cost_price ? `<span class="text-[10px] text-zinc-400">Cost: ₱${Number(p.cost_price).toFixed(2)}</span>` : ''}
                     </div>
                 </td>
                 <td class="px-6 py-4">
@@ -1908,11 +1908,7 @@ const screens = {
         `, async () => {
             const imageInput = document.getElementById('p-image-input');
             const imageUrlInput = document.getElementById('p-image-url');
-<<<<<<< HEAD
             let imageUrl = imageUrlInput.value.trim();
-=======
-            let imageUrl = imageUrlInput.value.trim() || p?.image_url || '';
->>>>>>> 9e29a0c5cd9b7f071689078db6be7232606e84f6
             
             // If a file is selected, upload it (wins over URL input)
             if (imageInput.files[0]) {
@@ -2175,7 +2171,7 @@ const screens = {
                                     </div>
                                     <div class="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                         <p class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1 text-zinc-400">Benefit</p>
-                                        <p class="text-2xl font-black text-zinc-900">${d.type === 'percentage' ? `${d.value}% OFF` : `â‚±${Number(d.value).toFixed(2)} OFF`}</p>
+                                        <p class="text-2xl font-black text-zinc-900">${d.type === 'percentage' ? `${d.value}% OFF` : `₱${Number(d.value).toFixed(2)} OFF`}</p>
                                     </div>
                                     <div class="space-y-2">
                                         <div class="flex justify-between items-center text-xs">
@@ -2218,7 +2214,7 @@ const screens = {
                         <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Type</label>
                         <select id="d-type" class="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none font-bold">
                             <option value="percentage" ${d?.type === 'percentage' ? 'selected' : ''}>Percentage (%)</option>
-                            <option value="fixed" ${d?.type === 'fixed' ? 'selected' : ''}>Fixed Amount (â‚±)</option>
+                            <option value="fixed" ${d?.type === 'fixed' ? 'selected' : ''}>Fixed Amount (₱)</option>
                         </select>
                     </div>
                     <div class="space-y-1.5">
@@ -2429,7 +2425,7 @@ const screens = {
                                                         <span class="font-bold text-zinc-700 text-sm">${s.user_name || 'System'}</span>
                                                     </div>
                                                 </td>
-                                                <td class="px-6 py-4 font-black text-zinc-900 text-right">â‚±${Number(s.total_amount).toFixed(2)}</td>
+                                                <td class="px-6 py-4 font-black text-zinc-900 text-right">₱${Number(s.total_amount).toFixed(2)}</td>
                                                 <td class="px-6 py-4 text-center">
                                                     <button onclick="screens.viewReceipt(${s.id})" class="h-9 px-4 bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 mx-auto">
                                                         <i data-lucide="eye" class="w-3.5 h-3.5"></i> View Detail
@@ -2531,7 +2527,7 @@ const screens = {
                         borderRadius: 12,
                         barThickness: 32
                     }, {
-                        label: 'Revenue (â‚±)',
+                        label: 'Revenue (₱)',
                         data: data.topProducts.map(p => p.total_revenue / 10), // Scaled for combined view
                         backgroundColor: '#18181b',
                         borderRadius: 12,
@@ -2958,24 +2954,24 @@ const screens = {
                             <div class="flex justify-between text-[11px] leading-tight">
                                 <span class="w-1/2 truncate font-medium text-zinc-900">${item.name || 'Unknown Item'}</span>
                                 <span class="w-1/4 text-center">${item.quantity}</span>
-                                <span class="w-1/4 text-right">â‚±${(item.unit_price * item.quantity).toFixed(2)}</span>
+                                <span class="w-1/4 text-right">₱${(item.unit_price * item.quantity).toFixed(2)}</span>
                             </div>
                         `).join('')}
                     </div>
 
                     <!-- Financial Breakdown -->
                     <div class="border-t border-dashed border-zinc-200 pt-3 space-y-1 text-zinc-600">
-                        <div class="flex justify-between text-[11px]"><span>Subtotal:</span> <span>â‚±${(Number(sale.total_amount) + Number(sale.discount_amount)).toFixed(2)}</span></div>
-                        ${sale.discount_amount > 0 ? `<div class="flex justify-between text-[11px] text-emerald-600 font-bold"><span>Total Discount:</span> <span>-â‚±${Number(sale.discount_amount).toFixed(2)}</span></div>` : ''}
-                        <div class="flex justify-between text-lg font-black pt-2 uppercase text-zinc-900"><span>Grand Total:</span> <span class="text-zinc-900">â‚±${Number(sale.total_amount).toFixed(2)}</span></div>
+                        <div class="flex justify-between text-[11px]"><span>Subtotal:</span> <span>₱${(Number(sale.total_amount) + Number(sale.discount_amount)).toFixed(2)}</span></div>
+                        ${sale.discount_amount > 0 ? `<div class="flex justify-between text-[11px] text-emerald-600 font-bold"><span>Total Discount:</span> <span>-₱${Number(sale.discount_amount).toFixed(2)}</span></div>` : ''}
+                        <div class="flex justify-between text-lg font-black pt-2 uppercase text-zinc-900"><span>Grand Total:</span> <span class="text-zinc-900">₱${Number(sale.total_amount).toFixed(2)}</span></div>
                     </div>
 
                     <!-- Tender specifics -->
                     <div class="pt-2 text-[10px] space-y-1">
                         <div class="flex justify-between uppercase"><span>Payment Method:</span> <span class="font-bold text-zinc-900">${(sale.payment_method || 'N/A').toUpperCase()}</span></div>
                         ${sale.payment_method === 'cash' ? `
-                            <div class="flex justify-between"><span>Cash Tendered:</span> <span>â‚±${Number(sale.cash_received || 0).toFixed(2)}</span></div>
-                            <div class="flex justify-between"><span>Change:</span> <span class="font-bold text-emerald-600">â‚±${Number(sale.change_given || 0).toFixed(2)}</span></div>
+                            <div class="flex justify-between"><span>Cash Tendered:</span> <span>₱${Number(sale.cash_received || 0).toFixed(2)}</span></div>
+                            <div class="flex justify-between"><span>Change:</span> <span class="font-bold text-emerald-600">₱${Number(sale.change_given || 0).toFixed(2)}</span></div>
                         ` : ''}
                     </div>
 
