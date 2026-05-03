@@ -498,6 +498,30 @@ const ui = {
         }
         lucide.createIcons();
     },
+    async uploadImage(file) {
+        if (!file) return null;
+        
+        // Validation
+        if (!file.type.startsWith('image/')) {
+            throw new Error("File must be an image");
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            throw new Error("Image too large. Max 10MB");
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const res = await api.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return res.data.imageUrl;
+        } catch (err) {
+            console.error('Upload Error:', err);
+            throw new Error(err.response?.data?.error || "Image upload failed");
+        }
+    },
     notify(message, type = 'success') {
         const container = document.getElementById('notification-container') || (() => {
             const el = document.createElement('div');
@@ -1837,6 +1861,10 @@ const screens = {
                     <p class="text-[10px] font-bold text-zinc-400 mt-2 uppercase">Click to upload photo</p>
                 </div>
                 <div class="md:col-span-2 space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-500 uppercase">Product Image URL (Optional)</label>
+                    <input type="text" id="p-image-url" value="${p?.image_url || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5" placeholder="https://example.com/image.jpg">
+                </div>
+                <div class="md:col-span-2 space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Product Name</label>
                     <input type="text" id="p-name" value="${p?.name || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
                 </div>
@@ -1879,15 +1907,12 @@ const screens = {
             </div>
         `, async () => {
             const imageInput = document.getElementById('p-image-input');
-            let imageUrl = p?.image_url || '';
+            const imageUrlInput = document.getElementById('p-image-url');
+            let imageUrl = imageUrlInput.value.trim();
             
+            // If a file is selected, upload it (wins over URL input)
             if (imageInput.files[0]) {
-                const formData = new FormData();
-                formData.append('image', imageInput.files[0]);
-                const uploadRes = await api.post('/upload', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                imageUrl = uploadRes.data.imageUrl;
+                imageUrl = await ui.uploadImage(imageInput.files[0]);
             }
 
             const data = {
@@ -1919,6 +1944,8 @@ const screens = {
         // Setup image upload triggers
         const preview = document.getElementById('p-image-preview');
         const input = document.getElementById('p-image-input');
+        const urlInput = document.getElementById('p-image-url');
+
         if (preview && input) {
             preview.onclick = () => input.click();
             input.onchange = (e) => {
@@ -1929,6 +1956,18 @@ const screens = {
                         preview.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">`;
                     };
                     reader.readAsDataURL(file);
+                }
+            };
+        }
+
+        if (urlInput && preview) {
+            urlInput.oninput = (e) => {
+                const url = e.target.value.trim();
+                if (url) {
+                    preview.innerHTML = `<img src="${url}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i data-lucide=\'image-plus\' class=\'w-8 h-8 text-zinc-400\'></i>'; lucide.createIcons();">`;
+                } else if (!input.files[0]) {
+                    preview.innerHTML = `<i data-lucide="image-plus" class="w-8 h-8 text-zinc-400"></i>`;
+                    lucide.createIcons();
                 }
             };
         }
@@ -3016,10 +3055,20 @@ const screens = {
                                 <label class="text-xs font-bold text-zinc-500 uppercase">Custom QR Code Image URL</label>
                                 <div class="flex gap-2">
                                     <input type="text" id="set-gcash-qr" value="${settings.gcash_qr || ''}" class="flex-1 h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5" placeholder="https://... or leave empty for auto-generated">
-                                    <button onclick="document.getElementById('qr-upload-input').click()" class="px-4 bg-zinc-100 rounded-xl border border-zinc-200 hover:bg-zinc-200 transition-colors">
+                                    <button type="button" onclick="document.getElementById('qr-upload-input').click()" id="qr-upload-btn" class="px-4 bg-zinc-100 rounded-xl border border-zinc-200 hover:bg-zinc-200 transition-colors">
                                         <i data-lucide="upload" class="w-4 h-4"></i>
                                     </button>
                                     <input type="file" id="qr-upload-input" class="hidden" accept="image/*" onchange="screens.handleQRCodeUpload(this)">
+                                </div>
+                                <div id="qr-preview-container" class="mt-4 p-4 border border-zinc-100 rounded-xl bg-zinc-50 flex items-center justify-center overflow-hidden min-h-[140px]">
+                                    ${settings.gcash_qr ? `
+                                        <img src="${settings.gcash_qr}" class="max-w-full max-h-32 object-contain rounded-lg">
+                                    ` : `
+                                        <div class="text-[10px] text-zinc-400 font-medium uppercase tracking-widest text-center">
+                                            <i data-lucide="image" class="w-6 h-6 mx-auto mb-2 opacity-20"></i>
+                                            Auto-Generated QR
+                                        </div>
+                                    `}
                                 </div>
                                 <p class="text-[10px] text-zinc-400 italic">If empty, the system will auto-generate a generic GCash QR code using the phone number above.</p>
                             </div>
@@ -3108,31 +3157,29 @@ const screens = {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
         
-        // Simple file size check (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            ui.notify("File too large. Max 5MB", "error");
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        const uploadBtn = input.previousElementSibling;
+        const uploadBtn = document.getElementById('qr-upload-btn');
         const originalHtml = uploadBtn.innerHTML;
+        const previewContainer = document.getElementById('qr-preview-container');
+        
         uploadBtn.disabled = true;
         uploadBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-zinc-300 border-t-zinc-900 rounded-full"></span>';
         
         try {
-            const res = await api.post('/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            document.getElementById('set-gcash-qr').value = res.data.imageUrl;
+            const imageUrl = await ui.uploadImage(file);
+            document.getElementById('set-gcash-qr').value = imageUrl;
+            
+            // Update preview
+            if (previewContainer) {
+                previewContainer.innerHTML = `<img src="${imageUrl}" class="max-w-full max-h-32 object-contain rounded-lg">`;
+            }
+            
             ui.notify("QR Code image uploaded");
         } catch (err) {
             ui.handleError(err, "Upload failed");
         } finally {
             uploadBtn.disabled = false;
             uploadBtn.innerHTML = originalHtml;
+            lucide.createIcons();
         }
     }
 };

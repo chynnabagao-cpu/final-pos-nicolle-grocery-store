@@ -235,6 +235,13 @@ async function initializeSchema() {
       console.log("🛠 Patching 'sales' table: Adding 'payment_details' column...");
       await pool.execute("ALTER TABLE sales ADD COLUMN payment_details TEXT DEFAULT NULL AFTER change_given");
     }
+
+    const [productCols] = await pool.query("SHOW COLUMNS FROM products") as any[];
+    const prodColNames = productCols.map((c: any) => c.Field);
+    if (!prodColNames.includes('image_url')) {
+      console.log("🛠 Patching 'products' table: Adding 'image_url' column...");
+      await pool.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT NULL");
+    }
   } catch (err) {
     console.warn("Could not verify sales table columns automatically. If you see errors, please check your database schema.");
   }
