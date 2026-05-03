@@ -8,8 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="https://posbytz.com/wp-content/uploads/2023/03/Top-10-Grocery-POS-Software-in-India-for-Your-Retail-Business-in-2023-01-768x576.png" />
-    <title>Nicolle's Store - Modern POS</title>
+    <title>Lorna's Store - Modern POS</title>
     <!-- Resource Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -22,8 +21,6 @@
     <style>
         /* Base styles and custom utilities */
         body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .active-nav { background-color: #F1F5F9; color: #0F172A; }
         #sidebar { transition: transform 0.3s ease-in-out; }
 
@@ -82,22 +79,22 @@
         <!-- Section 2: Main Layout (Sidebar + Content) -->
         <div id="main-layout" class="hidden w-full h-full flex flex-col md:flex-row overflow-hidden">
             <!-- Sidebar with Mobile Handling -->
-            <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-zinc-200 flex flex-col transition-transform -translate-x-full md:relative md:translate-x-0">
-                <div class="p-6 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center font-black text-xs">POS</div>
-                        <span id="store-name-display" class="font-bold tracking-tight text-lg text-zinc-900 uppercase">LORNA'S</span>
+            <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-zinc-200 flex flex-col transition-transform -translate-x-full md:relative md:translate-x-0">
+                <div class="p-4 md:p-6 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 bg-zinc-900 text-white rounded-lg flex items-center justify-center font-black text-[10px]">POS</div>
+                        <span id="store-name-display" class="font-bold tracking-tight text-base md:text-lg text-zinc-900 uppercase">LORNA'S</span>
                     </div>
-                    <button id="close-sidebar" class="md:hidden p-2 text-zinc-400 hover:text-zinc-900">
-                        <i data-lucide="x" class="w-6 h-6"></i>
+                    <button id="close-sidebar" class="md:hidden p-1.5 text-zinc-400 hover:text-zinc-900">
+                        <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <nav class="flex-1 px-3 space-y-1 overflow-y-auto" id="nav-items">
+                <nav class="flex-1 px-2 space-y-0.5 overflow-y-auto" id="nav-items">
                     <!-- Nav items will be dynamic based on role -->
                 </nav>
-                <div class="p-4 border-t border-zinc-200">
-                    <button id="logout-btn" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                <div class="p-3 border-t border-zinc-200">
+                    <button id="logout-btn" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-red-500 hover:bg-red-50 transition-colors">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
                         Logout
                     </button>
                 </div>
@@ -109,26 +106,26 @@
             <!-- Application Header -->
             <div class="flex-1 flex flex-col min-w-0 bg-zinc-50 overflow-hidden">
                 <!-- Header with Hamburger -->
-                <header class="h-16 bg-white border-b border-zinc-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
-                    <div class="flex items-center gap-3">
-                        <button id="open-sidebar" class="md:hidden p-2 -ml-2 text-zinc-600">
-                            <i data-lucide="menu" class="w-6 h-6"></i>
+                <header class="h-14 bg-white border-b border-zinc-200 px-3 md:px-6 flex items-center justify-between sticky top-0 z-30">
+                    <div class="flex items-center gap-2">
+                        <button id="open-sidebar" class="md:hidden p-1.5 -ml-1 text-zinc-600">
+                            <i data-lucide="menu" class="w-5 h-5"></i>
                         </button>
-                        <h1 id="screen-title" class="text-lg md:text-xl font-bold tracking-tight capitalize truncate max-w-[200px] md:max-w-none">Dashboard</h1>
+                        <h1 id="screen-title" class="text-base md:text-xl font-bold tracking-tight capitalize truncate max-w-[150px] md:max-w-none">Dashboard</h1>
                     </div>
                     
                     <div class="flex items-center gap-2 md:gap-4">
                         <div class="hidden sm:flex flex-col items-end">
-                            <span id="user-fullname" class="text-sm font-bold truncate max-w-[120px]">User</span>
-                            <span id="user-role" class="text-[10px] text-zinc-400 uppercase tracking-widest font-black">Role</span>
+                            <span id="user-fullname" class="text-xs font-bold truncate max-w-[100px]">User</span>
+                            <span id="user-role" class="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Role</span>
                         </div>
-                        <div class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200">
-                            <i data-lucide="user" class="w-5 h-5"></i>
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200">
+                            <i data-lucide="user" class="w-4 h-4 md:w-5 md:h-5"></i>
                         </div>
                     </div>
                 </header>
 
-                <main class="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar" id="screen-content">
+                <main class="flex-1 overflow-y-auto p-3 md:p-6" id="screen-content">
                     <!-- Screens will be rendered here -->
                 </main>
             </div>

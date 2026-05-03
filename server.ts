@@ -629,13 +629,34 @@ app.get("/api/reports/dashboard", authenticate, async (req, res) => {
     const lowStock = await db.get<any>("SELECT COUNT(*) as count FROM products WHERE stock_quantity <= min_stock_level");
     const expiringSoon = await db.get<any>("SELECT COUNT(*) as count FROM products WHERE expiration_date IS NOT NULL AND expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)");
 
-    // Sales chart: adjust query for SQLite if needed, but MySQL is fine
+    // Sales chart
     const salesChart = await db.query(`
       SELECT DATE(created_at) as date, SUM(total_amount) as amount 
       FROM sales 
       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
       GROUP BY date
       ORDER BY date ASC
+    `);
+
+    // Top selling products (today)
+    const topProducts = await db.query(`
+      SELECT p.name, SUM(si.quantity) as total_qty, SUM(si.subtotal) as total_revenue
+      FROM sale_items si
+      JOIN products p ON si.product_id = p.id
+      JOIN sales s ON si.sale_id = s.id
+      WHERE DATE(s.created_at) = CURDATE()
+      GROUP BY p.id
+      ORDER BY total_qty DESC
+      LIMIT 10
+    `);
+
+    // Recent Sales
+    const recentSales = await db.query(`
+      SELECT s.*, u.full_name as cashier
+      FROM sales s
+      LEFT JOIN users u ON s.user_id = u.id
+      ORDER BY s.created_at DESC
+      LIMIT 10
     `);
 
     res.json({
@@ -645,7 +666,9 @@ app.get("/api/reports/dashboard", authenticate, async (req, res) => {
         lowStock: lowStock || { count: 0 },
         expiringSoon: expiringSoon || { count: 0 }
       },
-      salesChart
+      salesChart,
+      topProducts,
+      recentSales
     });
   } catch (error: any) {
     // If DATE() functions fail (MySQL vs SQLite syntax differences), fallback to generic values
@@ -676,7 +699,15 @@ app.get("/api/reports/analytics", authenticate, restrictTo('admin', 'user'), asy
       LIMIT 10
     `);
 
-    res.json({ monthlyTrends, topProducts });
+    const salesByCategory = await db.query(`
+      SELECT c.name, SUM(si.subtotal) as total
+      FROM sale_items si
+      JOIN products p ON si.product_id = p.id
+      JOIN categories c ON p.category_id = c.id
+      GROUP BY c.id
+    `);
+
+    res.json({ monthlyTrends, topProducts, salesByCategory });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

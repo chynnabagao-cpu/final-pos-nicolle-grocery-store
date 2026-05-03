@@ -31,6 +31,18 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+@media (max-width: 640px) {
+    html {
+        font-size: 14px;
+    }
 }
 
 body {
@@ -61,12 +73,18 @@ body {
 
 .login-card {
     background: var(--surface);
-    padding: 2.5rem;
+    padding: 1.5rem;
     border-radius: 1.5rem;
     box-shadow: var(--shadow-md);
     width: 100%;
     max-width: 400px;
     border: 1px solid var(--line);
+}
+
+@media (min-width: 641px) {
+    .login-card {
+        padding: 2.5rem;
+    }
 }
 
 .brand {

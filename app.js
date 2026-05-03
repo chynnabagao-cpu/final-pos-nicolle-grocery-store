@@ -397,7 +397,7 @@ const ui = {
             if (key === 'stores') return; // Stores management removed with super_admin
             
             const btn = document.createElement('button');
-            btn.className = `nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 ${state.activeScreen === key ? 'active-nav' : ''}`;
+            btn.className = `nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 ${state.activeScreen === key ? 'active-nav' : ''}`;
             btn.dataset.screen = key;
             btn.innerHTML = `<i data-lucide="${screen.icon}" class="w-4 h-4"></i> ${screen.label}`;
             btn.onclick = () => router.navigate(key);
@@ -417,7 +417,7 @@ const ui = {
                 <h3 class="text-xl font-black text-zinc-900">${title}</h3>
                 <button id="close-modal" class="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div class="space-y-4 max-h-[65vh] overflow-y-auto pr-1 no-scrollbar">
+            <div class="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
                 ${contentHTML}
             </div>
             <div class="mt-8 flex gap-3">
@@ -610,40 +610,100 @@ const screens = {
             root.innerHTML = `
                 <div class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        ${this.card("Today's Sales", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900')}
-                        ${this.card("Total Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900')}
-                        ${this.card("Low Stock", data.stats?.lowStock?.count || 0, (data.stats?.lowStock?.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900')}
-                        ${this.card("Expiring Soon", data.stats?.expiringSoon?.count || 0, (data.stats?.expiringSoon?.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900')}
+                        ${this.card("Today's Sales", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900', 'banknote')}
+                        ${this.card("Total Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900', 'shopping-bag')}
+                        ${this.card("Low Stock", data.stats?.lowStock?.count || 0, (data.stats?.lowStock?.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900', 'alert-triangle')}
+                        ${this.card("Expiring Soon", data.stats?.expiringSoon?.count || 0, (data.stats?.expiringSoon?.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900', 'calendar-x')}
                     </div>
+
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm h-[400px] flex flex-col">
-                            <h3 class="font-bold text-zinc-900 mb-4">Sales Performance</h3>
-                            <canvas id="salesChart"></canvas>
+                        <div class="lg:col-span-2 space-y-6">
+                            <div class="bg-white p-4 md:p-6 rounded-2xl border border-zinc-200 shadow-sm h-[300px] md:h-[400px] flex flex-col">
+                                <h3 class="text-sm md:text-base font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                                    <i data-lucide="trending-up" class="w-4 md:w-5 h-4 md:h-5 text-emerald-500"></i> Sales Performance
+                                </h3>
+                                <canvas id="salesChart"></canvas>
+                            </div>
+
+                            <div class="bg-white p-4 md:p-6 rounded-2xl border border-zinc-200 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-sm md:text-base font-bold text-zinc-900 flex items-center gap-2">
+                                        <i data-lucide="clock" class="w-4 md:w-5 h-4 md:h-5 text-zinc-400"></i> Recent Sales
+                                    </h3>
+                                    <button onclick="router.navigate('reports')" class="text-[9px] md:text-xs font-bold text-zinc-400 hover:text-zinc-900 transition-colors uppercase tracking-widest">View All</button>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left min-w-[500px]">
+                                        <thead>
+                                            <tr class="text-[10px] text-zinc-400 font-black uppercase tracking-widest border-b border-zinc-100">
+                                                <th class="py-3 px-4">Order ID</th>
+                                                <th class="py-3 px-4">Cashier</th>
+                                                <th class="py-3 px-4">Total</th>
+                                                <th class="py-3 px-4">Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-zinc-50">
+                                            ${(data.recentSales || []).length > 0 ? data.recentSales.map(sale => `
+                                                <tr class="group hover:bg-zinc-50/50 transition-colors cursor-pointer" onclick="screens.viewReceipt(${sale.id})">
+                                                    <td class="py-3 px-4 text-sm font-bold text-zinc-900 flex items-center gap-2">
+                                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                        #${sale.invoice_number || sale.id}
+                                                    </td>
+                                                    <td class="py-3 px-4 text-xs font-semibold text-zinc-500">${sale.cashier || 'System'}</td>
+                                                    <td class="py-3 px-4 text-sm font-black text-zinc-900">₱${Number(sale.total_amount).toFixed(2)}</td>
+                                                    <td class="py-3 px-4 text-[10px] font-bold text-zinc-400 uppercase">${new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                                </tr>
+                                            `).join('') : `
+                                                <tr>
+                                                    <td colspan="4" class="py-10 text-center text-zinc-400 italic text-sm">No sales recorded today</td>
+                                                </tr>
+                                            `}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col">
-                            <h3 class="font-bold text-zinc-900 mb-4">Quick Actions</h3>
-                            <div class="space-y-3">
-                                ${state.user.role !== 'user' ? `
-                                    <button onclick="screens.openProductModal()" class="w-full flex items-center gap-3 h-14 px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="plus" class="w-5 h-5"></i> Add New Product
+
+                        <div class="space-y-4 md:space-y-6">
+                            <div class="bg-white p-4 md:p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col">
+                                <h3 class="text-sm md:text-base font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                                    <i data-lucide="zap" class="w-4 md:w-5 h-4 md:h-5 text-amber-500"></i> Quick Actions
+                                </h3>
+                                <div class="grid grid-cols-1 gap-2 md:gap-3">
+                                    ${state.user.role === 'admin' ? `
+                                        <button onclick="screens.openProductModal()" class="flex items-center gap-3 h-12 md:h-14 px-3 md:px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-xs md:text-sm">
+                                            <div class="w-7 md:w-8 h-7 md:h-8 bg-zinc-100 rounded-lg flex items-center justify-center"><i data-lucide="plus" class="w-3.5 md:w-4 h-3.5 md:h-4"></i></div> Add Product
+                                        </button>
+                                        <button onclick="router.navigate('inventory')" class="flex items-center gap-3 h-12 md:h-14 px-3 md:px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-xs md:text-sm">
+                                            <div class="w-7 md:w-8 h-7 md:h-8 bg-zinc-100 rounded-lg flex items-center justify-center"><i data-lucide="package" class="w-3.5 md:w-4 h-3.5 md:h-4"></i></div> Inventory
+                                        </button>
+                                    ` : ''}
+                                    <button onclick="router.navigate('pos')" class="flex items-center gap-3 h-12 md:h-14 px-3 md:px-4 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all active:scale-95 text-xs md:text-sm shadow-lg shadow-zinc-900/20">
+                                        <div class="w-7 md:w-8 h-7 md:h-8 bg-white/10 rounded-lg flex items-center justify-center"><i data-lucide="shopping-cart" class="w-3.5 md:w-4 h-3.5 md:h-4"></i></div> POS Terminal
                                     </button>
-                                    <button onclick="router.navigate('users')" class="w-full flex items-center gap-3 h-14 px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="users" class="w-5 h-5"></i> Manage Personnel
-                                    </button>
-                                    <button onclick="screens.openCategoryModal()" class="w-full flex items-center gap-3 h-14 px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="tag" class="w-5 h-5"></i> New Category
-                                    </button>
-                                    <button onclick="screens.openDiscountModal()" class="w-full flex items-center gap-3 h-14 px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="sparkles" class="w-5 h-5"></i> New Campaign
-                                    </button>
-                                ` : `
-                                    <button onclick="router.navigate('pos')" class="w-full flex items-center gap-3 h-14 px-4 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="shopping-cart" class="w-5 h-5"></i> Open Terminal
-                                    </button>
-                                    <button onclick="router.navigate('inventory')" class="w-full flex items-center gap-3 h-14 px-4 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-all active:scale-95 text-sm">
-                                        <i data-lucide="package" class="w-5 h-5"></i> Check Inventory
-                                    </button>
-                                `}
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-4 md:p-6 rounded-2xl border border-zinc-200 shadow-sm">
+                                <h3 class="text-sm md:text-base font-bold text-zinc-900 mb-4 flex items-center gap-2">
+                                    <i data-lucide="star" class="w-4 md:w-5 h-4 md:h-5 text-amber-500"></i> Top Sellers
+                                </h3>
+                                <div class="space-y-4">
+                                    ${(data.topProducts || []).length > 0 ? data.topProducts.map((p, i) => `
+                                        <div class="flex items-center justify-between group">
+                                            <div class="flex items-center gap-3 overflow-hidden">
+                                                <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-zinc-100 text-[10px] font-black text-zinc-500 group-hover:bg-zinc-900 group-hover:text-white transition-colors">${i + 1}</span>
+                                                <div class="overflow-hidden">
+                                                    <p class="text-sm font-bold text-zinc-900 truncate">${p.name}</p>
+                                                    <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">${p.total_qty} units sold</p>
+                                                </div>
+                                            </div>
+                                            <p class="text-sm font-black text-zinc-900">₱${Number(p.total_revenue).toFixed(2)}</p>
+                                        </div>
+                                    `).join('') : `
+                                        <div class="py-6 text-center text-zinc-400 italic text-xs">No product data available</div>
+                                    `}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -662,17 +722,28 @@ const screens = {
             lucide.createIcons();
         }
     },
-    card(label, value, colorClass) {
+    card(label, value, colorClass, icon) {
         return `
-            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
-                <p class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">${label}</p>
-                <p class="text-2xl font-black ${colorClass}">${value}</p>
+            <div class="bg-white p-4 md:p-5 rounded-2xl border border-zinc-200 shadow-sm relative overflow-hidden group hover:border-zinc-300 transition-colors">
+                <div class="absolute -right-2 -top-2 opacity-[0.03] transform rotate-12 group-hover:scale-110 transition-transform">
+                    <i data-lucide="${icon || 'box'}" class="w-16 h-16 md:w-20 md:h-20 text-zinc-900"></i>
+                </div>
+                <div class="flex items-center gap-2 mb-1">
+                    <i data-lucide="${icon || 'box'}" class="w-3 md:w-3.5 h-3 md:h-3.5 text-zinc-400"></i>
+                    <p class="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">${label}</p>
+                </div>
+                <p class="text-xl md:text-2xl font-black ${colorClass}">${value}</p>
             </div>
         `;
     },
     initCharts(data) {
         const ctx = document.getElementById('salesChart');
         if (!ctx) return;
+        
+        // Destroy existing chart if it exists to prevent overlap
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+
         new Chart(ctx, {
             type: 'line',
             data: {
@@ -681,36 +752,70 @@ const screens = {
                     label: 'Daily Sales',
                     data: (data.salesChart || []).map(d => d.amount),
                     borderColor: '#10B981',
+                    borderWidth: 3,
                     tension: 0.4,
                     fill: true,
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)'
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#10B981',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#18181b',
+                        padding: 12,
+                        titleFont: { family: "'Inter', sans-serif", size: 12, weight: 'bold' },
+                        bodyFont: { family: "'Inter', sans-serif", size: 14, weight: 'bold' },
+                        callbacks: {
+                            label: function(context) {
+                                return ' ₱' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#f4f4f5' },
+                        ticks: { font: { family: "'Inter', sans-serif", weight: '600' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: "'Inter', sans-serif", weight: '600' } }
+                    }
+                }
+            }
         });
     },
     async renderTerminal() {
         const root = document.getElementById('screen-content');
         root.innerHTML = `
-            <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 h-full overflow-hidden relative">
+            <div class="flex flex-col lg:flex-row gap-3 lg:gap-6 h-full overflow-hidden relative">
                 <!-- Main Products Area -->
-                <div class="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 h-full overflow-hidden">
-                    <div class="flex gap-3 items-center">
+                <div class="flex-1 flex flex-col gap-3 lg:gap-6 min-w-0 h-full overflow-hidden">
+                    <div class="flex gap-2 items-center">
                         <div class="relative flex-1">
-                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-5 h-5"></i>
-                            <input type="text" id="product-search" placeholder="Search products or scan..." class="pl-10 h-11 md:h-12 w-full px-4 py-2 bg-white border border-zinc-200 rounded-xl md:rounded-2xl outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all text-sm">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 md:w-5 h-4 md:h-5"></i>
+                            <input type="text" id="product-search" placeholder="Search..." class="pl-9 h-10 md:h-12 w-full px-3 md:px-4 py-2 bg-white border border-zinc-200 rounded-xl md:rounded-2xl outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all text-xs md:text-sm">
                         </div>
-                        <button onclick="screens.openCameraScanner('pos')" class="h-11 w-11 md:h-12 md:w-12 flex items-center justify-center bg-white border border-zinc-200 rounded-xl md:rounded-2xl text-zinc-500 hover:text-zinc-900 transition-all active:scale-95" title="Scan Barcode">
-                            <i data-lucide="scan" class="w-5 h-5"></i>
+                        <button onclick="screens.openCameraScanner('pos')" class="h-10 w-10 md:h-12 md:w-12 flex items-center justify-center bg-white border border-zinc-200 rounded-xl md:rounded-2xl text-zinc-500 hover:text-zinc-900 transition-all active:scale-95">
+                            <i data-lucide="scan" class="w-4 h-4 md:w-5 md:h-5"></i>
                         </button>
                         <div id="offline-status" class="hidden md:block"></div>
-                        <button class="lg:hidden h-11 w-11 md:h-12 md:w-12 flex items-center justify-center bg-white border border-zinc-200 rounded-xl md:rounded-2xl text-zinc-500 relative transition-transform active:scale-95" onclick="screens.toggleMobileCart(true)">
-                            <i data-lucide="shopping-basket" class="w-5 h-5"></i>
-                            <span id="mobile-cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full hidden flex items-center justify-center font-bold border-2 border-white">0</span>
+                        <button class="lg:hidden h-10 w-10 md:h-12 md:w-12 flex items-center justify-center bg-white border border-zinc-200 rounded-xl md:rounded-2xl text-zinc-500 relative transition-transform active:scale-95" onclick="screens.toggleMobileCart(true)">
+                            <i data-lucide="shopping-basket" class="w-4 h-4 md:w-5 md:h-5"></i>
+                            <span id="mobile-cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full hidden flex items-center justify-center font-bold border-2 border-white">0</span>
                         </button>
                     </div>
-                    <div id="category-chips" class="flex gap-2 overflow-x-auto pb-2 no-scrollbar min-h-[40px] md:min-h-[48px]"></div>
-                    <div id="terminal-products" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4 overflow-y-auto pr-2 flex-1 no-scrollbar pb-24 lg:pb-0"></div>
+                    <div id="category-chips" class="flex gap-1.5 overflow-x-auto pb-1.5 min-h-[36px] md:min-h-[48px]"></div>
+                    <div id="terminal-products" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 md:gap-4 overflow-y-auto pr-1 flex-1 pb-24 lg:pb-0"></div>
                 </div>
                 
                 <!-- Cart Sidebar / Drawer -->
@@ -727,7 +832,7 @@ const screens = {
                              <button class="lg:hidden p-2 text-zinc-400 hover:text-zinc-900 rounded-lg hover:bg-zinc-100" onclick="screens.toggleMobileCart(false)"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                     </div>
-                    <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar"></div>
+                    <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
                     <div class="p-4 lg:p-6 bg-zinc-50 border-t border-zinc-100 space-y-4">
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm text-zinc-500 font-medium"><span>Subtotal</span> <span id="cart-subtotal" class="text-zinc-900">₱0.00</span></div>
@@ -1193,16 +1298,16 @@ const screens = {
         
         filtered.forEach(p => {
             const div = document.createElement('div');
-            div.className = "bg-white p-3 rounded-2xl border border-zinc-200 hover:border-zinc-900 cursor-pointer group transition-all";
+            div.className = "bg-white p-2 md:p-3 rounded-xl md:rounded-2xl border border-zinc-200 hover:border-zinc-900 cursor-pointer group transition-all";
             div.innerHTML = `
-                <div class="aspect-square bg-zinc-50 rounded-xl mb-3 overflow-hidden flex items-center justify-center">
-                    ${p.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">` : `<i data-lucide="package" class="w-10 h-10 text-zinc-200"></i>`}
+                <div class="aspect-square bg-zinc-50 rounded-lg md:rounded-xl mb-2 md:mb-3 overflow-hidden flex items-center justify-center">
+                    ${p.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">` : `<i data-lucide="package" class="w-8 md:w-10 h-8 md:h-10 text-zinc-200"></i>`}
                 </div>
-                <p class="font-bold text-zinc-900 truncate">${p.name}</p>
-                <p class="text-zinc-400 text-xs mb-2">${p.barcode}</p>
+                <p class="font-bold text-zinc-900 truncate text-xs md:text-sm">${p.name}</p>
+                <p class="text-zinc-400 text-[10px] mb-1 md:mb-2 truncate">${p.barcode}</p>
                 <div class="flex items-center justify-between">
-                    <span class="font-black text-zinc-900">₱${Number(p.selling_price).toFixed(2)}</span>
-                    <span class="text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${p.stock_quantity > 10 ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}">${p.stock_quantity} pts</span>
+                    <span class="font-black text-zinc-900 text-xs md:text-base">₱${Number(p.selling_price).toFixed(2)}</span>
+                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${p.stock_quantity > 10 ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}">${p.stock_quantity} pts</span>
                 </div>
             `;
             div.onclick = () => this.addToCart(p);
@@ -1286,24 +1391,24 @@ const screens = {
             const div = document.createElement('div');
             div.className = "flex items-center gap-3";
             div.innerHTML = `
-                <div class="w-12 h-12 rounded-lg bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                    ${item.image_url ? `<img src="${item.image_url}" class="w-full h-full object-cover text-[8px] italic">` : `<i data-lucide="package" class="w-6 h-6 text-zinc-200"></i>`}
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-zinc-50 border border-zinc-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                    ${item.image_url ? `<img src="${item.image_url}" class="w-full h-full object-cover text-[8px] italic">` : `<i data-lucide="package" class="w-5 md:w-6 h-5 md:h-6 text-zinc-200"></i>`}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold truncate">${item.name}</p>
-                    <div class="flex items-center gap-2">
-                        <p class="text-xs ${itemPromoDiscount > 0 ? 'text-zinc-400 line-through' : 'text-zinc-400 font-medium'}">₱${Number(item.selling_price).toFixed(2)}</p>
-                        ${itemPromoDiscount > 0 ? `<p class="text-xs text-emerald-600 font-black">₱${((itemLineTotal - itemPromoDiscount) / item.quantity).toFixed(2)}</p>` : ''}
+                    <p class="text-[13px] font-bold truncate">${item.name}</p>
+                    <div class="flex items-center gap-1.5">
+                        <p class="text-[11px] ${itemPromoDiscount > 0 ? 'text-zinc-400 line-through' : 'text-zinc-400 font-medium'}">₱${Number(item.selling_price).toFixed(2)}</p>
+                        ${itemPromoDiscount > 0 ? `<p class="text-[11px] text-emerald-600 font-black">₱${((itemLineTotal - itemPromoDiscount) / item.quantity).toFixed(2)}</p>` : ''}
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div class="flex items-center bg-zinc-50 rounded-lg p-1 border border-zinc-100">
-                        <button onclick="screens.updateCartQty(${item.id}, -1)" class="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">-</button>
-                        <span class="w-8 text-center text-xs font-black text-zinc-900">${item.quantity}</span>
-                        <button onclick="screens.updateCartQty(${item.id}, 1)" class="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">+</button>
+                <div class="flex items-center gap-1.5 md:gap-2">
+                    <div class="flex items-center bg-zinc-50 rounded-lg p-0.5 md:p-1 border border-zinc-100">
+                        <button onclick="screens.updateCartQty(${item.id}, -1)" class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">-</button>
+                        <span class="w-6 md:w-8 text-center text-xs font-black text-zinc-900">${item.quantity}</span>
+                        <button onclick="screens.updateCartQty(${item.id}, 1)" class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">+</button>
                     </div>
-                    <button onclick="screens.removeFromCart(${item.id})" class="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <button onclick="screens.removeFromCart(${item.id})" class="p-1 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all">
+                        <i data-lucide="trash-2" class="w-3 md:w-3.5 h-3 md:h-3.5"></i>
                     </button>
                 </div>
             `;
@@ -1584,17 +1689,17 @@ const screens = {
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto no-scrollbar">
-                        <table class="w-full text-left min-w-[700px]">
+                <div class="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+                    <div class="overflow-auto max-h-[600px]">
+                        <table class="w-full text-left min-w-[600px] md:min-w-[800px]">
                             <thead class="bg-zinc-50 border-b border-zinc-200">
                                 <tr>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Product Details</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Price</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Stock Level</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Expiry</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Actions</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Product Details</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Category</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Price</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Stock Level</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Expiry</th>
+                                    <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="inventory-list" class="divide-y divide-zinc-100 italic text-zinc-400">
@@ -1772,64 +1877,64 @@ const screens = {
 
             return `
             <tr class="hover:bg-zinc-50/50 transition-colors group">
-                <td class="px-6 py-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-zinc-100 flex-shrink-0 flex items-center justify-center text-zinc-400 overflow-hidden border border-zinc-200">
-                            ${p.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover ${isExpired ? 'grayscale' : ''}">` : `<i data-lucide="package" class="w-5 h-5"></i>`}
+                <td class="px-3 md:px-6 py-3 md:py-4">
+                    <div class="flex items-center gap-2 md:gap-4">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-zinc-100 flex-shrink-0 flex items-center justify-center text-zinc-400 overflow-hidden border border-zinc-200">
+                            ${p.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover ${isExpired ? 'grayscale' : ''}">` : `<i data-lucide="package" class="w-4 h-4 md:w-5 md:h-5"></i>`}
                         </div>
                         <div class="min-w-0">
-                            <p class="font-bold text-zinc-900 truncate">${p.name}</p>
-                            <p class="text-[10px] text-zinc-400 font-mono tracking-tighter uppercase truncate">${p.barcode}</p>
+                            <p class="font-bold text-zinc-900 truncate text-xs md:text-sm">${p.name}</p>
+                            <p class="text-[9px] md:text-[10px] text-zinc-400 font-mono tracking-tighter uppercase truncate">${p.barcode}</p>
                         </div>
                     </div>
                 </td>
-                <td class="px-6 py-4">
-                    <span class="px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-tight">${p.category_name || 'General'}</span>
+                <td class="px-3 md:px-6 py-3 md:py-4">
+                    <span class="px-2 py-0.5 md:py-1 rounded-lg bg-zinc-100 text-zinc-600 text-[9px] md:text-[10px] font-black uppercase tracking-tight">${p.category_name || 'General'}</span>
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-3 md:px-6 py-3 md:py-4">
                     <div class="flex flex-col">
-                        <span class="font-bold text-zinc-900">₱${Number(p.selling_price).toFixed(2)}</span>
-                        ${p.cost_price ? `<span class="text-[10px] text-zinc-400">Cost: ₱${Number(p.cost_price).toFixed(2)}</span>` : ''}
+                        <span class="font-bold text-zinc-900 text-xs md:text-sm">₱${Number(p.selling_price).toFixed(2)}</span>
+                        ${p.cost_price ? `<span class="text-[9px] text-zinc-400">CP: ₱${Number(p.cost_price).toFixed(2)}</span>` : ''}
                     </div>
                 </td>
-                <td class="px-6 py-4">
-                    <div class="flex flex-col gap-1.5">
-                        <div class="w-24 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                <td class="px-3 md:px-6 py-3 md:py-4">
+                    <div class="flex flex-col gap-1 md:gap-1.5">
+                        <div class="w-16 md:w-24 h-1 md:h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all duration-700 ${p.stock_quantity > p.min_stock_level ? 'bg-emerald-500' : 'bg-red-500'}" 
                                  style="width: ${Math.min(100, (p.stock_quantity / (p.min_stock_level * 10)) * 100)}%"></div>
                         </div>
-                        <div class="flex items-center gap-2">
-                             <span class="text-[10px] font-bold ${p.stock_quantity > p.min_stock_level ? 'text-zinc-600' : 'text-red-600'}">${p.stock_quantity} units</span>
+                        <div class="flex items-center gap-1 md:gap-2">
+                             <span class="text-[9px] md:text-[10px] font-bold ${p.stock_quantity > p.min_stock_level ? 'text-zinc-600' : 'text-red-600'}">${p.stock_quantity} units</span>
                              ${p.stock_quantity <= p.min_stock_level ? `
-                                <span class="flex items-center gap-1 text-[8px] font-black text-red-500 uppercase px-1.5 py-0.5 bg-red-50 rounded">
-                                    <i data-lucide="alert-triangle" class="w-2 h-2"></i> Low
+                                <span class="flex items-center gap-1 text-[7px] md:text-[8px] font-black text-red-500 uppercase px-1 py-0.5 bg-red-50 rounded">
+                                    <i data-lucide="alert-triangle" class="w-2 h-2"></i> LOW
                                 </span>
                              ` : ''}
                         </div>
                     </div>
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-3 md:px-6 py-3 md:py-4">
                     ${p.expiration_date ? `
                         <div class="flex flex-col gap-0.5">
-                            <span class="text-xs font-bold ${isExpired ? 'text-red-600' : (isExpiringSoon ? 'text-amber-500' : 'text-zinc-900')}">${new Date(p.expiration_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            <span class="text-[10px] md:text-xs font-bold ${isExpired ? 'text-red-600' : (isExpiringSoon ? 'text-amber-500' : 'text-zinc-900')}">${new Date(p.expiration_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                             ${isExpired ? `
-                                <span class="text-[8px] font-black text-red-500 uppercase bg-red-50 px-1.5 py-0.5 rounded w-fit">Expired</span>
+                                <span class="text-[7px] md:text-[8px] font-black text-red-500 uppercase bg-red-50 px-1 py-0.5 rounded w-fit">Expired</span>
                             ` : (isExpiringSoon ? `
-                                <span class="text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-1.5 py-0.5 rounded w-fit">Near Expiry</span>
+                                <span class="text-[7px] md:text-[8px] font-black text-amber-500 uppercase bg-amber-50 px-1 py-0.5 rounded w-fit">Near Expiry</span>
                             ` : '')}
                         </div>
-                    ` : '<span class="text-[10px] text-zinc-300 font-bold uppercase tracking-widest italic">No Expiry</span>'}
+                    ` : '<span class="text-[9px] md:text-[10px] text-zinc-300 font-bold uppercase tracking-widest italic">No Expiry</span>'}
                 </td>
-                <td class="px-6 py-4 text-right whitespace-nowrap">
+                <td class="px-3 md:px-6 py-3 md:py-4 text-right whitespace-nowrap">
                     <div class="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                         ${state.user.role !== 'user' ? `
-                            <button onclick="screens.openProductModal(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="w-9 h-9 flex items-center justify-center hover:bg-zinc-100 rounded-xl text-zinc-600 transition-all" title="Edit Item">
-                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            <button onclick="screens.openProductModal(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center hover:bg-zinc-100 rounded-lg md:rounded-xl text-zinc-600 transition-all" title="Edit Item">
+                                <i data-lucide="edit-3" class="w-3 md:w-4 h-3 md:h-4"></i>
                             </button>
-                            <button onclick="screens.handleDelete('product', ${p.id})" class="w-9 h-9 flex items-center justify-center hover:bg-red-50 rounded-xl text-red-400 transition-all" title="Delete Item">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <button onclick="screens.handleDelete('product', ${p.id})" class="w-7 h-7 md:w-9 md:h-9 flex items-center justify-center hover:bg-red-50 rounded-lg md:rounded-xl text-red-400 transition-all" title="Delete Item">
+                                <i data-lucide="trash-2" class="w-3 md:w-4 h-3 md:h-4"></i>
                             </button>
-                        ` : '<span class="text-[10px] text-zinc-300 font-bold uppercase tracking-widest px-4">Locked</span>'}
+                        ` : ''}
                     </div>
                 </td>
             </tr>
@@ -1990,17 +2095,17 @@ const screens = {
                         ` : ''}
                     </div>
                     <!-- Card Grid Layout -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         ${(state.categories || []).map(cat => `
-                            <div class="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex items-center justify-between group">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-400"><i data-lucide="layers" class="w-5 h-5"></i></div>
-                                    <span class="font-bold text-zinc-900">${cat.name}</span>
+                            <div class="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border border-zinc-200 shadow-sm flex items-center justify-between group">
+                                <div class="flex items-center gap-2 md:gap-3">
+                                    <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-400"><i data-lucide="layers" class="w-4 h-4 md:w-5 md:h-5"></i></div>
+                                    <span class="font-bold text-zinc-900 text-sm md:text-base">${cat.name}</span>
                                 </div>
-                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 md:gap-1">
                                     ${state.user.role !== 'user' ? `
-                                        <button onclick="screens.openCategoryModal(${JSON.stringify(cat).replace(/"/g, '&quot;')})" class="p-2 hover:bg-zinc-100 rounded-lg text-zinc-400"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                                        <button onclick="screens.handleDelete('category', ${cat.id})" class="p-2 hover:bg-zinc-100 rounded-lg text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        <button onclick="screens.openCategoryModal(${JSON.stringify(cat).replace(/"/g, '&quot;')})" class="p-1.5 md:p-2 hover:bg-zinc-100 rounded-lg text-zinc-400"><i data-lucide="edit-3" class="w-3.5 md:w-4 h-3.5 md:h-4"></i></button>
+                                        <button onclick="screens.handleDelete('category', ${cat.id})" class="p-1.5 md:p-2 hover:bg-zinc-100 rounded-lg text-red-400"><i data-lucide="trash-2" class="w-3.5 md:w-4 h-3.5 md:h-4"></i></button>
                                     ` : ''}
                                 </div>
                             </div>
@@ -2049,8 +2154,8 @@ const screens = {
             root.innerHTML = `
                 <div class="space-y-6">
                     <div class="flex justify-between items-center">
-                        <h2 class="text-2xl font-bold tracking-tight text-zinc-900">Personnel Registry</h2>
-                        <button onclick="screens.openUserModal()" class="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-all"><i data-lucide="plus" class="w-4 h-4"></i> Add Personnel</button> structure
+                        <h2 class="text-xl md:text-2xl font-bold tracking-tight text-zinc-900">Personnel Registry</h2>
+                        <button onclick="screens.openUserModal()" class="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-all text-xs md:text-sm"><i data-lucide="plus" class="w-3.5 md:w-4 h-3.5 md:h-4"></i> Add Personnel</button>
                     </div>
                     <!-- Registry Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -2361,27 +2466,27 @@ const screens = {
                     <!-- Visual Charts Section -->
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         <!-- Revenue Trend Card -->
-                        <div class="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm">
-                            <div class="flex items-center justify-between mb-6">
-                                <h3 class="font-bold text-zinc-900 flex items-center gap-2">
-                                    <span class="w-2 h-6 bg-zinc-900 rounded-full"></span> Monthly Sales Trend
+                        <div class="bg-white p-4 md:p-6 rounded-3xl border border-zinc-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-4 md:mb-6">
+                                <h3 class="text-sm md:text-base font-bold text-zinc-900 flex items-center gap-2">
+                                    <span class="w-1.5 md:w-2 h-5 md:h-6 bg-zinc-900 rounded-full"></span> Monthly Trend
                                 </h3>
-                                <span class="text-[10px] font-black px-2 py-1 bg-zinc-100 rounded-lg text-zinc-500 uppercase tracking-widest">Last 6 Months</span>
+                                <span class="text-[9px] md:text-[10px] font-black px-1.5 md:px-2 py-0.5 md:py-1 bg-zinc-100 rounded-lg text-zinc-500 uppercase tracking-widest">6 Months</span>
                             </div>
-                            <div class="h-[300px]">
+                            <div class="h-[250px] md:h-[300px]">
                                 <canvas id="chart-monthly-trends"></canvas>
                             </div>
                         </div>
 
                         <!-- Categorization Card -->
-                        <div class="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm">
-                            <div class="flex items-center justify-between mb-6">
-                                <h3 class="font-bold text-zinc-900 flex items-center gap-2">
-                                    <span class="w-2 h-6 bg-indigo-500 rounded-full"></span> Sales by Category
+                        <div class="bg-white p-4 md:p-6 rounded-3xl border border-zinc-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-4 md:mb-6">
+                                <h3 class="text-sm md:text-base font-bold text-zinc-900 flex items-center gap-2">
+                                    <span class="w-1.5 md:w-2 h-5 md:h-6 bg-indigo-500 rounded-full"></span> Sales by Cateogry
                                 </h3>
                                 <i data-lucide="pie-chart" class="w-4 h-4 text-zinc-400"></i>
                             </div>
-                            <div class="h-[300px] flex items-center justify-center">
+                            <div class="h-[250px] md:h-[300px] flex items-center justify-center">
                                 <canvas id="chart-category-sales"></canvas>
                             </div>
                         </div>
@@ -2402,33 +2507,33 @@ const screens = {
                     <!-- Tabular Sales History -->
                     <div class="space-y-4">
                         <h3 class="font-bold text-zinc-900 px-2 text-lg">Detailed Sales History</h3>
-                        <div class="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
-                            <div class="overflow-x-auto no-scrollbar">
-                                <table class="w-full text-left">
+                        <div class="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+                            <div class="overflow-auto max-h-[600px]">
+                                <table class="w-full text-left min-w-[600px] md:min-w-[800px]">
                                     <thead class="bg-zinc-50 border-b border-zinc-100">
                                         <tr>
-                                            <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Order ID</th>
-                                            <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Date/Time</th>
-                                            <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Transaction By</th>
-                                            <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Net Amount</th>
-                                            <th class="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Actions</th>
+                                            <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Order ID</th>
+                                            <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Date/Time</th>
+                                            <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest">Employee</th>
+                                            <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Net Amount</th>
+                                            <th class="px-3 md:px-6 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-50">
                                         ${(sales || []).map(s => `
                                             <tr class="hover:bg-zinc-50/50 transition-colors group">
-                                                <td class="px-6 py-4 font-bold text-zinc-900">#${s.id}</td>
-                                                <td class="px-6 py-4 text-zinc-500 text-sm font-medium">${new Date(s.created_at).toLocaleString()}</td>
-                                                <td class="px-6 py-4">
-                                                    <div class="flex items-center gap-2">
-                                                        <div class="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-black text-zinc-500 border border-zinc-200">${(s.user_name || 'System').charAt(0)}</div>
-                                                        <span class="font-bold text-zinc-700 text-sm">${s.user_name || 'System'}</span>
+                                                <td class="px-3 md:px-6 py-3 md:py-4 font-bold text-zinc-900 text-xs md:text-sm">#${s.id}</td>
+                                                <td class="px-3 md:px-6 py-3 md:py-4 text-zinc-500 text-[10px] md:text-sm font-medium">${new Date(s.created_at).toLocaleString()}</td>
+                                                <td class="px-3 md:px-6 py-3 md:py-4">
+                                                    <div class="flex items-center gap-1.5 md:gap-2">
+                                                        <div class="w-5 md:w-6 h-5 md:h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[8px] md:text-[10px] font-black text-zinc-500 border border-zinc-200">${(s.user_name || 'Sys').charAt(0)}</div>
+                                                        <span class="font-bold text-zinc-700 text-[11px] md:text-sm">${s.user_name || 'System'}</span>
                                                     </div>
                                                 </td>
-                                                <td class="px-6 py-4 font-black text-zinc-900 text-right">₱${Number(s.total_amount).toFixed(2)}</td>
-                                                <td class="px-6 py-4 text-center">
-                                                    <button onclick="screens.viewReceipt(${s.id})" class="h-9 px-4 bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 mx-auto">
-                                                        <i data-lucide="eye" class="w-3.5 h-3.5"></i> View Detail
+                                                <td class="px-3 md:px-6 py-3 md:py-4 font-black text-zinc-900 text-right text-xs md:text-sm">₱${Number(s.total_amount).toFixed(2)}</td>
+                                                <td class="px-3 md:px-6 py-3 md:py-4 text-center">
+                                                    <button onclick="screens.viewReceipt(${s.id})" class="h-8 md:h-9 px-3 md:px-4 bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all flex items-center gap-2 mx-auto">
+                                                        <i data-lucide="eye" class="w-3 md:w-3.5 h-3 md:h-3.5"></i> View
                                                     </button>
                                                 </td>
                                             </tr>
