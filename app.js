@@ -1169,7 +1169,7 @@ const screens = {
                     offlineManager.queueSale(saleData);
                     ui.notify("Offline: Transaction queued", 'warning');
                     this.showReceipt("OFFLINE", { ...saleData, saleItems }, false);
-                    this.completeCheckoutProcess();
+                    await this.completeCheckoutProcess();
                     return false;
                 }
 
@@ -1179,7 +1179,7 @@ const screens = {
                 
                 // 4. Finalization Phase
                 this.showReceipt(saleId, { ...saleData, saleItems }, false);
-                this.completeCheckoutProcess();
+                await this.completeCheckoutProcess();
                 ui.notify("Payment processed successfully!");
                 return false;
             } catch (err) {
@@ -1467,6 +1467,7 @@ const screens = {
         } else {
             state.cart.push({ ...product, quantity: 1 });
         }
+        
         this.renderCart();
         return true;
     },
@@ -1476,6 +1477,17 @@ const screens = {
         item.quantity += delta;
         if (item.quantity <= 0) {
             state.cart = state.cart.filter(i => i.id !== id);
+        }
+        this.renderCart();
+    },
+    setCartQty(id, value) {
+        const item = state.cart.find(i => i.id === id);
+        if (!item) return;
+        const newQty = parseInt(value) || 0;
+        if (newQty <= 0) {
+            state.cart = state.cart.filter(i => i.id !== id);
+        } else {
+            item.quantity = newQty;
         }
         this.renderCart();
     },
@@ -1544,7 +1556,9 @@ const screens = {
                 <div class="flex items-center gap-1.5 md:gap-2">
                     <div class="flex items-center bg-zinc-50 rounded-lg p-0.5 md:p-1 border border-zinc-100">
                         <button onclick="screens.updateCartQty(${item.id}, -1)" class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">-</button>
-                        <span class="w-6 md:w-8 text-center text-xs font-black text-zinc-900">${item.quantity}</span>
+                        <input type="number" value="${item.quantity}" min="1" 
+                            onchange="screens.setCartQty(${item.id}, this.value)"
+                            class="w-8 md:w-10 text-center text-[11px] font-black text-zinc-900 bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                         <button onclick="screens.updateCartQty(${item.id}, 1)" class="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center hover:bg-white rounded-md transition-colors font-bold text-zinc-400 hover:text-zinc-900">+</button>
                     </div>
                     <button onclick="screens.removeFromCart(${item.id})" class="p-1 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all">
