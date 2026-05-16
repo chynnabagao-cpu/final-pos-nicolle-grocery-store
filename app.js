@@ -443,8 +443,14 @@ const ui = {
             const originalText = saveBtn.innerText;
             saveBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span>';
             try {
-                await onSave();
-                close();
+                const result = await onSave();
+                if (result !== false) close();
+                else {
+                    // If we don't close, reset the button state
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = originalText;
+                    lucide.createIcons();
+                }
             } catch (err) {
                 console.error("Modal Save Error:", err);
                 let errorMsg = "An unexpected error occurred during save";
@@ -856,12 +862,15 @@ const screens = {
                 
                 <div id="cart-sidebar" class="fixed lg:relative inset-y-0 right-0 z-[70] lg:z-10 w-[85%] max-w-[400px] lg:w-[380px] flex flex-col bg-white border-l lg:border border-zinc-200 lg:rounded-2xl shadow-2xl lg:shadow-sm transform translate-x-full lg:translate-x-0 transition-transform duration-300 h-full shrink-0 overflow-hidden">
                     <div class="p-4 lg:p-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-                        <h3 class="font-bold flex items-center gap-2"><i data-lucide="shopping-cart" class="w-5 h-5"></i> Current Order</h3>
-                        <div class="flex items-center gap-2">
-                             <button onclick="screens.clearCart()" class="p-2 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors" title="Clear Order">
-                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        <h3 class="font-bold flex items-center gap-2 text-zinc-900"><i data-lucide="shopping-cart" class="w-5 h-5 text-zinc-400"></i> Current Order</h3>
+                        <div class="flex items-center gap-1">
+                             <button onclick="screens.reprintLastReceipt()" class="p-2 text-zinc-400 hover:text-zinc-900 rounded-lg hover:bg-white border border-transparent hover:border-zinc-200 transition-all" title="Reprint Last Receipt">
+                                <i data-lucide="history" class="w-4 h-4 md:w-5 md:h-5"></i>
                              </button>
-                             <span id="cart-count" class="bg-zinc-900 text-white px-2.5 py-1 rounded-lg text-xs font-black">0 Items</span>
+                             <button onclick="screens.clearCart()" class="p-2 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors" title="Clear Order">
+                                <i data-lucide="trash-2" class="w-4 h-4 md:w-5 md:h-5"></i>
+                             </button>
+                             <span id="cart-count" class="bg-zinc-900 text-white px-2.5 py-1 rounded-lg text-xs font-black ml-1">0 Items</span>
                              <button class="lg:hidden p-2 text-zinc-400 hover:text-zinc-900 rounded-lg hover:bg-zinc-100" onclick="screens.toggleMobileCart(false)"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                     </div>
@@ -884,7 +893,12 @@ const screens = {
                             </div>
                             <div class="pt-3 border-t border-zinc-200 flex justify-between font-black text-xl lg:text-2xl text-zinc-900"><span>Total</span> <span id="cart-total">₱0.00</span></div>
                         </div>
-                        <button id="checkout-btn" disabled class="w-full h-12 md:h-14 bg-zinc-900 text-white font-bold rounded-xl text-lg hover:bg-zinc-800 shadow-lg shadow-zinc-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale">Process Payment</button>
+                        <div class="flex gap-2">
+                            <button id="preview-receipt-btn" onclick="screens.previewCurrentReceipt()" class="h-12 md:h-14 px-4 bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900 rounded-xl hover:bg-zinc-50 transition-all flex items-center justify-center gap-2" title="Preview/Print Bill">
+                                <i data-lucide="printer" class="w-5 h-5"></i>
+                            </button>
+                            <button id="checkout-btn" disabled class="flex-1 h-12 md:h-14 bg-zinc-900 text-white font-bold rounded-xl text-lg hover:bg-zinc-800 shadow-lg shadow-zinc-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale">Process Payment</button>
+                        </div>
                     </div>
                 </div>
 
@@ -926,6 +940,82 @@ const screens = {
             if (state.cart.length > 0) {
                 bar?.classList.remove('translate-y-32', 'opacity-0');
             }
+        }
+    },
+    previewCurrentReceipt() {
+        if (state.cart.length === 0) {
+            ui.notify("Order is empty", "warning");
+            return;
+        }
+
+        let subtotal = 0;
+        let promoDiscountTotal = 0;
+        const activePromos = (state.discounts || []).filter(d => d.effective_status === 'active');
+
+        const saleItems = state.cart.map(item => {
+            let itemPromoDiscount = 0;
+            activePromos.forEach(p => {
+                let applies = false;
+                if (p.target_type === 'all') applies = true;
+                else if (p.target_type === 'category' && item.category_id === parseInt(p.target_id || 0)) applies = true;
+                else if (p.target_type === 'product' && item.id === parseInt(p.target_id || 0)) applies = true;
+
+                if (applies) {
+                    if (p.type === 'percentage') {
+                        itemPromoDiscount += (item.selling_price * item.quantity) * (p.value / 100);
+                    } else {
+                        itemPromoDiscount += p.value * item.quantity;
+                    }
+                }
+            });
+
+            const lineTotal = item.selling_price * item.quantity;
+            subtotal += lineTotal;
+            promoDiscountTotal += itemPromoDiscount;
+
+            return {
+                product_id: item.id,
+                quantity: item.quantity,
+                unit_price: item.selling_price,
+                subtotal: lineTotal - itemPromoDiscount,
+                discount_amount: itemPromoDiscount
+            };
+        });
+
+        let manualDiscountValue = 0;
+        if (state.cartDiscountType === 'percent') {
+            manualDiscountValue = subtotal * ((state.cartDiscountValue || 0) / 100);
+        } else {
+            manualDiscountValue = state.cartDiscountValue || 0;
+        }
+
+        const totalDeduction = manualDiscountValue + promoDiscountTotal;
+        const total = Math.max(0, subtotal - totalDeduction);
+
+        const draftData = {
+            saleItems,
+            total_amount: total,
+            discount_amount: totalDeduction,
+            payment_method: 'PRO-FORMA',
+            cash_received: 0,
+            change_given: 0
+        };
+
+        this.showReceipt("BILL-PREVIEW", draftData);
+    },
+    async reprintLastReceipt() {
+        try {
+            // Fetch the most recent sale from the server
+            const res = await api.get('/sales?limit=1');
+            const sales = res.data;
+            if (sales && sales.length > 0) {
+                this.viewReceipt(sales[0].id);
+            } else {
+                ui.notify("No transactions found", "warning");
+            }
+        } catch (error) {
+            console.error("Reprint Error:", error);
+            ui.notify("Could not retrieve last receipt", "error");
         }
     },
     async handleCheckout() {
@@ -1074,9 +1164,10 @@ const screens = {
                 // 2. Persistence Phase
                 if (state.isOffline) {
                     offlineManager.queueSale(saleData);
-                    this.completeCheckoutProcess(saleData, saleItems);
                     ui.notify("Offline: Transaction queued", 'warning');
-                    return;
+                    this.showReceipt("OFFLINE", { ...saleData, saleItems }, true);
+                    this.completeCheckoutProcess();
+                    return false;
                 }
 
                 // 3. Server Sync Phase
@@ -1084,10 +1175,10 @@ const screens = {
                 const saleId = res.data.id;
                 
                 // 4. Finalization Phase
-                this.showReceipt(saleId, { ...saleData, saleItems });
+                this.showReceipt(saleId, { ...saleData, saleItems }, true);
                 this.completeCheckoutProcess();
                 ui.notify("Payment processed successfully!");
-
+                return false;
             } catch (err) {
                 console.error("Payment Processing Error:", err);
                 
@@ -1163,7 +1254,7 @@ const screens = {
         this.renderProductsGrid(document.getElementById('product-search')?.value || '');
     },
     // Generates a formal receipt modal with print capabilities
-    showReceipt(saleId, data) {
+    showReceipt(saleId, data, autoPrint = false) {
         const now = new Date();
         const formattedDate = now.toLocaleDateString();
         const formattedTime = now.toLocaleTimeString();
@@ -1191,7 +1282,7 @@ const screens = {
                         <span class="w-1/4 text-center">Qty</span>
                         <span class="w-1/4 text-right">Price</span>
                     </div>
-                    ${data.saleItems.map(item => {
+                    ${(data.saleItems || []).map(item => {
                         const product = state.products.find(p => p.id === item.product_id);
                         return `
                             <div class="flex justify-between text-[11px] leading-tight">
@@ -1240,6 +1331,11 @@ const screens = {
         if (saveBtn) {
             saveBtn.innerHTML = '<i data-lucide="printer" class="w-4 h-4"></i> Print Receipt';
             lucide.createIcons();
+        }
+
+        // Auto-print if requested
+        if (autoPrint) {
+            setTimeout(() => this.printReceipt(), 1000);
         }
     },
     // Standard browser print trigger
@@ -1505,7 +1601,14 @@ const screens = {
             }
         }
         
-        document.getElementById('checkout-btn').disabled = state.cart.length === 0;
+        const isCartEmpty = state.cart.length === 0;
+        document.getElementById('checkout-btn').disabled = isCartEmpty;
+        const previewBtn = document.getElementById('preview-receipt-btn');
+        if (previewBtn) {
+            previewBtn.disabled = isCartEmpty;
+            previewBtn.classList.toggle('opacity-50', isCartEmpty);
+            previewBtn.classList.toggle('grayscale', isCartEmpty);
+        }
         lucide.createIcons();
     },
     updateCartDiscountByInput() {
@@ -1969,6 +2072,18 @@ const screens = {
 
         ui.showModal(p ? "Edit Product" : "Add New Product", `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Image Section -->
+                <div class="md:col-span-2 flex flex-col items-center mb-2 bg-zinc-50 p-6 rounded-3xl border border-dashed border-zinc-200">
+                    <div id="p-image-preview" class="w-32 h-32 rounded-3xl bg-white border-2 border-zinc-100 flex items-center justify-center overflow-hidden shadow-lg group cursor-pointer hover:border-zinc-900 transition-all relative">
+                        ${p?.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover">` : `<i data-lucide="image-plus" class="w-8 h-8 text-zinc-300"></i>`}
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <span class="text-[10px] font-black text-white uppercase tracking-widest">Change Photo</span>
+                        </div>
+                    </div>
+                    <input type="file" id="p-image-input" class="hidden" accept="image/*">
+                    <p class="text-[10px] font-black text-zinc-400 mt-4 uppercase tracking-widest">Optional: Upload or Paste URL below</p>
+                </div>
+
                 <div id="p-inline-scanner" class="hidden md:col-span-2 bg-zinc-900 rounded-3xl overflow-hidden p-4 space-y-4 shadow-inner relative">
                     <div id="p-inline-view" class="w-full aspect-video md:aspect-[21/9] bg-black rounded-2xl overflow-hidden"></div>
                     <div class="flex justify-between items-center">
@@ -1977,56 +2092,60 @@ const screens = {
                     </div>
                 </div>
 
-                <div class="md:col-span-2 flex flex-col items-center mb-2">
-                    <div id="p-image-preview" class="w-28 h-28 rounded-2xl bg-zinc-100 border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-zinc-900 transition-all">
-                        ${p?.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover">` : `<i data-lucide="image-plus" class="w-8 h-8 text-zinc-400"></i>`}
+                <div class="md:col-span-2 space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-500 uppercase">Product Image URL</label>
+                    <div class="relative">
+                        <input type="text" id="p-image-url" value="${p?.image_url || ''}" class="w-full h-11 pl-3 pr-10 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 text-sm" placeholder="https://example.com/image.jpg">
+                        <i data-lucide="link-2" class="absolute right-3 top-3.5 w-4 h-4 text-zinc-300"></i>
                     </div>
-                    <input type="file" id="p-image-input" class="hidden" accept="image/*">
-                    <p class="text-[10px] font-bold text-zinc-400 mt-2 uppercase">Click to upload photo</p>
                 </div>
+
                 <div class="md:col-span-2 space-y-1.5">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Product Image URL (Optional)</label>
-                    <input type="text" id="p-image-url" value="${p?.image_url || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5" placeholder="https://example.com/image.jpg">
+                    <label class="text-xs font-bold text-zinc-500 uppercase font-black tracking-tight text-zinc-900">Product Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="p-name" value="${p?.name || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold" placeholder="Enter product name">
                 </div>
-                <div class="md:col-span-2 space-y-1.5">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Product Name</label>
-                    <input type="text" id="p-name" value="${p?.name || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
-                </div>
+
                 <div class="space-y-1.5 md:col-span-2">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Barcode/SKU</label>
+                    <label class="text-xs font-bold text-zinc-500 uppercase">Barcode/SKU <span class="text-red-500">*</span></label>
                     <div class="flex gap-2">
-                        <input type="text" id="p-barcode" value="${p?.barcode || ''}" class="flex-1 h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
-                        <button type="button" onclick="screens.startInlineScanner()" class="h-11 px-6 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 font-bold text-xs" title="Scan Barcode">
+                        <input type="text" id="p-barcode" value="${p?.barcode || ''}" class="flex-1 h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-mono">
+                        <button type="button" onclick="screens.startInlineScanner()" class="h-11 px-6 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 font-bold text-xs shadow-lg shadow-zinc-900/20" title="Scan Barcode">
                             <i data-lucide="scan" class="w-4 h-4"></i> Scan
                         </button>
                     </div>
                 </div>
+
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Category</label>
-                    <select id="p-category" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <select id="p-category" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
                         <option value="">No Category</option>
-                        ${state.categories.map(c => `<option value="${c.id}" ${p?.category_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                        ${(state.categories || []).map(c => `<option value="${c.id}" ${p?.category_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                     </select>
                 </div>
+
                 <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Cost Price</label>
-                    <input type="number" id="p-cost" value="${p?.cost_price || 0}" step="0.01" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <label class="text-xs font-bold text-zinc-500 uppercase">Cost Price (₱)</label>
+                    <input type="number" id="p-cost" value="${p?.cost_price || 0}" step="0.01" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
                 </div>
+
                 <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Selling Price</label>
-                    <input type="number" id="p-price" value="${p?.selling_price || 0}" step="0.01" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <label class="text-xs font-bold text-zinc-500 uppercase text-emerald-600">Selling Price (₱)</label>
+                    <input type="number" id="p-price" value="${p?.selling_price || 0}" step="0.01" class="w-full h-11 px-3 bg-emerald-50 border border-emerald-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/10 font-black text-emerald-700">
                 </div>
+
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Initial Stock</label>
-                    <input type="number" id="p-stock" value="${p?.stock_quantity || 0}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <input type="number" id="p-stock" value="${p?.stock_quantity || 0}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
                 </div>
+
                 <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-zinc-500 uppercase">Min Stock Level</label>
-                    <input type="number" id="p-min" value="${p?.min_stock_level || 10}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <label class="text-xs font-bold text-zinc-500 uppercase text-red-400">Low Stock Alert Level</label>
+                    <input type="number" id="p-min" value="${p?.min_stock_level || 10}" class="w-full h-11 px-3 bg-red-50 border border-red-100 rounded-xl outline-none focus:ring-2 focus:ring-red-500/10 font-bold text-red-600">
                 </div>
+
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Expiration Date</label>
-                    <input type="date" id="p-expiry" value="${p?.expiration_date ? p.expiration_date.split('T')[0] : ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
+                    <input type="date" id="p-expiry" value="${p?.expiration_date ? p.expiration_date.split('T')[0] : ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
                 </div>
             </div>
         `, async () => {
@@ -2034,9 +2153,10 @@ const screens = {
             const imageUrlInput = document.getElementById('p-image-url');
             let imageUrl = imageUrlInput.value.trim();
             
-            // If a file is selected, upload it (wins over URL input)
+            // If a file is selected, upload it (wins over URL input only if a file is present)
             if (imageInput.files[0]) {
-                imageUrl = await ui.uploadImage(imageInput.files[0]);
+                const uploadedUrl = await ui.uploadImage(imageInput.files[0]);
+                if (uploadedUrl) imageUrl = uploadedUrl;
             }
 
             const data = {
@@ -2048,21 +2168,18 @@ const screens = {
                 stock_quantity: parseInt(document.getElementById('p-stock').value) || 0,
                 min_stock_level: parseInt(document.getElementById('p-min').value) || 0,
                 expiration_date: document.getElementById('p-expiry').value || null,
-                image_url: imageUrl
+                image_url: imageUrl || null
             };
 
-            // Basic integrity validation before sending to API
             if (!data.name) throw new Error("Product name is required");
             if (!data.barcode) throw new Error("Barcode is required");
-            if (data.selling_price < 0) throw new Error("Selling price cannot be negative");
 
-            // Direct API call based on whether it's an update (id exists) or create
             if (p) {
                 await api.put(`/products/${p.id}`, data);
             } else {
                 await api.post('/products', data);
             }
-            this.renderInventory(); // Reload the list
+            this.renderInventory();
         }, "Save Product", "max-w-2xl");
 
         // Setup image upload triggers
@@ -2080,6 +2197,8 @@ const screens = {
                         preview.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">`;
                     };
                     reader.readAsDataURL(file);
+                    // Clear URL input when a file is chosen to avoid confusion
+                    if (urlInput) urlInput.value = '';
                 }
             };
         }
@@ -2088,9 +2207,19 @@ const screens = {
             urlInput.oninput = (e) => {
                 const url = e.target.value.trim();
                 if (url) {
-                    preview.innerHTML = `<img src="${url}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i data-lucide=\'image-plus\' class=\'w-8 h-8 text-zinc-400\'></i>'; lucide.createIcons();">`;
+                    // Test if it's a valid image URL by creating an image object
+                    preview.innerHTML = `<div class="p-2 animate-pulse text-[9px] font-black uppercase text-zinc-400">Validating URL...</div>`;
+                    const img = new Image();
+                    img.onload = () => {
+                        preview.innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+                    };
+                    img.onerror = () => {
+                        preview.innerHTML = `<div class="flex flex-col items-center gap-1 text-red-400"><i data-lucide="image-off" class="w-5 h-5"></i><span class="text-[8px] font-black uppercase">Invalid Image</span></div>`;
+                        lucide.createIcons();
+                    };
+                    img.src = url;
                 } else if (!input.files[0]) {
-                    preview.innerHTML = `<i data-lucide="image-plus" class="w-8 h-8 text-zinc-400"></i>`;
+                    preview.innerHTML = `<i data-lucide="image-plus" class="w-8 h-8 text-zinc-300"></i>`;
                     lucide.createIcons();
                 }
             };
@@ -2368,10 +2497,10 @@ const screens = {
                         <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Target Item</label>
                         <select id="d-target-id" class="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none font-bold">
                             <optgroup label="Categories">
-                                ${categories.map(c => `<option value="${c.id}" ${d?.target_type === 'category' && d.target_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                ${(categories || []).map(c => `<option value="${c.id}" ${d?.target_type === 'category' && d.target_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
                             </optgroup>
                             <optgroup label="Products">
-                                ${products.map(p => `<option value="${p.id}" ${d?.target_type === 'product' && d.target_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+                                ${(products || []).map(p => `<option value="${p.id}" ${d?.target_type === 'product' && d.target_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
                             </optgroup>
                         </select>
                     </div>
@@ -2458,7 +2587,7 @@ const screens = {
             state.reportsData = { sales, analytics };
             
             // Empty state handler - check if we have any meaningful data
-            if (!analytics || !analytics.topProducts || !analytics.monthlyTrends || (analytics.monthlyTrends.length === 0 && analytics.topProducts.length === 0)) {
+            if (!analytics || !analytics.topProducts || !analytics.monthlyTrends || ((analytics.monthlyTrends || []).length === 0 && (analytics.topProducts || []).length === 0)) {
                 root.innerHTML = `
                     <div class="flex flex-col items-center justify-center p-20 text-center space-y-4">
                         <div class="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-300">
@@ -2598,14 +2727,17 @@ const screens = {
 
         // Monthly Trends
         const trendEl = document.getElementById('chart-monthly-trends');
-        if (trendEl && data.monthlyTrends) {
+        const labels = (data.monthlyTrends || []).map(m => m.month);
+        const revenueData = (data.monthlyTrends || []).map(m => m.total);
+
+        if (trendEl && labels.length > 0) {
             new Chart(trendEl, {
                 type: 'line',
                 data: {
-                    labels: data.monthlyTrends.map(m => m.month),
+                    labels: labels,
                     datasets: [{
                         label: 'Revenue',
-                        data: data.monthlyTrends.map(m => m.total),
+                        data: revenueData,
                         borderColor: '#18181b',
                         backgroundColor: 'rgba(24, 24, 27, 0.05)',
                         fill: true,
@@ -2631,13 +2763,16 @@ const screens = {
 
         // Sales By Category
         const catEl = document.getElementById('chart-category-sales');
-        if (catEl && data.salesByCategory) {
+        const catLabels = (data.salesByCategory || []).map(c => c.name);
+        const catData = (data.salesByCategory || []).map(c => c.total);
+
+        if (catEl && catLabels.length > 0) {
             new Chart(catEl, {
                 type: 'doughnut',
                 data: {
-                    labels: data.salesByCategory.map(c => c.name),
+                    labels: catLabels,
                     datasets: [{
-                        data: data.salesByCategory.map(c => c.total),
+                        data: catData,
                         backgroundColor: ['#18181b', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899'],
                         borderWidth: 4,
                         borderColor: '#ffffff',
@@ -2657,20 +2792,24 @@ const screens = {
 
         // Top Products
         const prodEl = document.getElementById('chart-top-products');
-        if (prodEl && data.topProducts) {
+        const prodLabels = (data.topProducts || []).map(p => p.name);
+        const prodQtyData = (data.topProducts || []).map(p => p.total_qty);
+        const prodRevData = (data.topProducts || []).map(p => p.total_revenue / 10);
+
+        if (prodEl && prodLabels.length > 0) {
             new Chart(prodEl, {
                 type: 'bar',
                 data: {
-                    labels: data.topProducts.map(p => p.name),
+                    labels: prodLabels,
                     datasets: [{
                         label: 'Quantity Sold',
-                        data: data.topProducts.map(p => p.total_qty),
+                        data: prodQtyData,
                         backgroundColor: '#10b981',
                         borderRadius: 12,
                         barThickness: 32
                     }, {
                         label: 'Revenue (₱)',
-                        data: data.topProducts.map(p => p.total_revenue / 10), // Scaled for combined view
+                        data: prodRevData, // Scaled for combined view
                         backgroundColor: '#18181b',
                         borderRadius: 12,
                         barThickness: 32
@@ -2860,10 +2999,10 @@ const screens = {
 
             const summaryData = [
                 ["Metric", "Value"],
-                ["Total Sales Record", sales.length.toString()],
-                ["Total Revenue", `PHP ${sales.reduce((sum, s) => sum + Number(s.total_amount || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`],
+                ["Total Sales Record", (sales || []).length.toString()],
+                ["Total Revenue", `PHP ${(sales || []).reduce((sum, s) => sum + Number(s.total_amount || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`],
                 ["Top Product", analytics.topProducts && analytics.topProducts.length > 0 ? analytics.topProducts[0].name : "N/A"],
-                ["Active Campaigns", state.discounts.filter(d => d.is_active).length.toString()]
+                ["Active Campaigns", (state.discounts || []).filter(d => d.is_active).length.toString()]
             ];
 
             doc.autoTable({

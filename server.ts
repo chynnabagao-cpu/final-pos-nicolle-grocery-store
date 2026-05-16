@@ -157,12 +157,13 @@ async function initializeSchema() {
       name VARCHAR(255) NOT NULL,
       barcode VARCHAR(255) NOT NULL,
       category_id INT DEFAULT NULL,
-      cost_price DECIMAL(10, 2) NOT NULL,
-      selling_price DECIMAL(10, 2) NOT NULL,
+      cost_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+      selling_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
       stock_quantity INT DEFAULT 0,
       min_stock_level INT DEFAULT 10,
       expiration_date DATE DEFAULT NULL,
-      image_url TEXT DEFAULT NULL
+      image_url TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`,
 
     `CREATE TABLE IF NOT EXISTS sales (
@@ -371,7 +372,7 @@ app.post("/api/products", authenticate, restrictTo('admin'), async (req, res) =>
     const result = await db.execute(`
       INSERT INTO products (name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date]);
+    `, [name, barcode, category_id || null, cost_price || 0, selling_price || 0, stock_quantity || 0, min_stock_level || 0, image_url || null, expiration_date || null]);
     res.json({ id: result.insertId });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -385,7 +386,7 @@ app.put("/api/products/:id", authenticate, restrictTo('admin'), async (req, res)
       UPDATE products 
       SET name = ?, barcode = ?, category_id = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, min_stock_level = ?, image_url = ?, expiration_date = ?
       WHERE id = ?
-    `, [name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date, req.params.id]);
+    `, [name, barcode, category_id || null, cost_price || 0, selling_price || 0, stock_quantity || 0, min_stock_level || 0, image_url || null, expiration_date || null, req.params.id]);
     res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -477,21 +478,31 @@ app.post("/api/sales", authenticate, async (req, res) => {
 });
 
 app.get("/api/sales", authenticate, async (req, res) => {
-  const { date } = req.query;
+  const { date, limit, offset } = req.query;
   try {
     let query = `
       SELECT s.*, u.full_name as user_name 
       FROM sales s 
       LEFT JOIN users u ON s.user_id = u.id 
     `;
-    const params = [];
+    const params: any[] = [];
     
     if (date) {
       query += " WHERE DATE(s.created_at) = ? ";
       params.push(date);
     }
     
-    query += " ORDER BY s.created_at DESC";
+    query += " ORDER BY s.created_at DESC ";
+    
+    if (limit) {
+      query += " LIMIT ? ";
+      params.push(parseInt(limit as string));
+      
+      if (offset) {
+        query += " OFFSET ? ";
+        params.push(parseInt(offset as string));
+      }
+    }
     
     const sales = await db.query(query, params);
     res.json(sales);
