@@ -1165,7 +1165,7 @@ const screens = {
                 if (state.isOffline) {
                     offlineManager.queueSale(saleData);
                     ui.notify("Offline: Transaction queued", 'warning');
-                    this.showReceipt("OFFLINE", { ...saleData, saleItems }, true);
+                    this.showReceipt("OFFLINE", { ...saleData, saleItems }, false);
                     this.completeCheckoutProcess();
                     return false;
                 }
@@ -1175,7 +1175,7 @@ const screens = {
                 const saleId = res.data.id;
                 
                 // 4. Finalization Phase
-                this.showReceipt(saleId, { ...saleData, saleItems }, true);
+                this.showReceipt(saleId, { ...saleData, saleItems }, false);
                 this.completeCheckoutProcess();
                 ui.notify("Payment processed successfully!");
                 return false;
@@ -3465,7 +3465,7 @@ const screens = {
     }
 };
 
-// --- Initializations ---
+// --- Initialization ---
 window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
     ui.notify(event.reason?.message || "An unexpected error occurred", 'error');
