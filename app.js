@@ -3465,7 +3465,7 @@ const screens = {
     }
 };
 
-// --- Initialization ---
+// --- Initializations ---
 window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
     ui.notify(event.reason?.message || "An unexpected error occurred", 'error');
