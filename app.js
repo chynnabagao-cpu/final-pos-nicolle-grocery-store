@@ -894,8 +894,11 @@ const screens = {
                             <div class="pt-3 border-t border-zinc-200 flex justify-between font-black text-xl lg:text-2xl text-zinc-900"><span>Total</span> <span id="cart-total">₱0.00</span></div>
                         </div>
                         <div class="flex gap-2">
-                            <button id="preview-receipt-btn" onclick="screens.previewCurrentReceipt()" class="h-12 md:h-14 px-4 bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900 rounded-xl hover:bg-zinc-50 transition-all flex items-center justify-center gap-2" title="Preview/Print Bill">
-                                <i data-lucide="printer" class="w-5 h-5"></i>
+                            <button id="preview-receipt-btn" onclick="screens.previewCurrentReceipt(false)" class="h-12 md:h-14 px-4 bg-white border border-zinc-200 text-zinc-900 rounded-xl hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 font-bold text-xs" title="Preview Bill">
+                                <i data-lucide="eye" class="w-4 h-4"></i> Bill
+                            </button>
+                            <button id="print-current-btn" onclick="screens.previewCurrentReceipt(true)" class="h-12 md:h-14 px-4 bg-white border border-zinc-200 text-zinc-900 rounded-xl hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 font-bold text-xs" title="Print Bill">
+                                <i data-lucide="printer" class="w-4 h-4"></i> Print
                             </button>
                             <button id="checkout-btn" disabled class="flex-1 h-12 md:h-14 bg-zinc-900 text-white font-bold rounded-xl text-lg hover:bg-zinc-800 shadow-lg shadow-zinc-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale">Process Payment</button>
                         </div>
@@ -942,7 +945,7 @@ const screens = {
             }
         }
     },
-    previewCurrentReceipt() {
+    previewCurrentReceipt(autoPrint = false) {
         if (state.cart.length === 0) {
             ui.notify("Order is empty", "warning");
             return;
@@ -1001,7 +1004,7 @@ const screens = {
             change_given: 0
         };
 
-        this.showReceipt("BILL-PREVIEW", draftData);
+        this.showReceipt("BILL-PREVIEW", draftData, autoPrint);
     },
     async reprintLastReceipt() {
         try {
@@ -1245,12 +1248,20 @@ const screens = {
         };
     },
     // Resets the POS state after a successful (or offline queued) transaction
-    completeCheckoutProcess() {
+    async completeCheckoutProcess() {
         state.cart = [];
         state.cartDiscount = 0;
         state.cartDiscountValue = 0;
         state.cartDiscountType = 'percent';
         this.renderCart();
+        
+        try {
+            const res = await api.get('/products');
+            state.products = res.data;
+        } catch (e) {
+            console.error("Failed to refresh stock after checkout", e);
+        }
+        
         this.renderProductsGrid(document.getElementById('product-search')?.value || '');
     },
     // Generates a formal receipt modal with print capabilities
@@ -1420,17 +1431,23 @@ const screens = {
         );
         
         filtered.forEach(p => {
+            const isOutOfStock = p.stock_quantity <= 0;
             const div = document.createElement('div');
-            div.className = "bg-white p-2 md:p-3 rounded-xl md:rounded-2xl border border-zinc-200 hover:border-zinc-900 cursor-pointer group transition-all";
+            div.className = `bg-white p-2 md:p-3 rounded-xl md:rounded-2xl border border-zinc-200 transition-all ${isOutOfStock ? 'opacity-60 grayscale cursor-not-allowed' : 'hover:border-zinc-900 cursor-pointer group'}`;
             div.innerHTML = `
-                <div class="aspect-square bg-zinc-50 rounded-lg md:rounded-xl mb-2 md:mb-3 overflow-hidden flex items-center justify-center">
+                <div class="aspect-square bg-zinc-50 rounded-lg md:rounded-xl mb-2 md:mb-3 overflow-hidden flex items-center justify-center relative">
                     ${p.image_url ? `<img src="${p.image_url}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">` : `<i data-lucide="package" class="w-8 md:w-10 h-8 md:h-10 text-zinc-200"></i>`}
+                    ${isOutOfStock ? `
+                        <div class="absolute inset-0 bg-red-500/10 flex items-center justify-center">
+                            <span class="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded truncate">EMPTY</span>
+                        </div>
+                    ` : ''}
                 </div>
                 <p class="font-bold text-zinc-900 truncate text-xs md:text-sm">${p.name}</p>
                 <p class="text-zinc-400 text-[10px] mb-1 md:mb-2 truncate">${p.barcode}</p>
                 <div class="flex items-center justify-between">
                     <span class="font-black text-zinc-900 text-xs md:text-base">₱${Number(p.selling_price).toFixed(2)}</span>
-                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${p.stock_quantity > 10 ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}">${p.stock_quantity} pts</span>
+                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${isOutOfStock ? 'bg-red-50 text-red-600' : (p.stock_quantity > 10 ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600')}">${isOutOfStock ? 'Out of Stock' : `${p.stock_quantity} pts`}</span>
                 </div>
             `;
             div.onclick = () => this.addToCart(p);
@@ -1439,6 +1456,11 @@ const screens = {
         lucide.createIcons();
     },
     addToCart(product) {
+        if (product.stock_quantity <= 0) {
+            ui.notify(`Caution: ${product.name} is currently out of stock.`, "error");
+            return false;
+        }
+
         const existing = state.cart.find(i => i.id === product.id);
         if (existing) {
             existing.quantity++;
@@ -1446,6 +1468,7 @@ const screens = {
             state.cart.push({ ...product, quantity: 1 });
         }
         this.renderCart();
+        return true;
     },
     updateCartQty(id, delta) {
         const item = state.cart.find(i => i.id === id);
@@ -1603,11 +1626,19 @@ const screens = {
         
         const isCartEmpty = state.cart.length === 0;
         document.getElementById('checkout-btn').disabled = isCartEmpty;
+        
         const previewBtn = document.getElementById('preview-receipt-btn');
         if (previewBtn) {
             previewBtn.disabled = isCartEmpty;
             previewBtn.classList.toggle('opacity-50', isCartEmpty);
             previewBtn.classList.toggle('grayscale', isCartEmpty);
+        }
+        
+        const printBtn = document.getElementById('print-current-btn');
+        if (printBtn) {
+            printBtn.disabled = isCartEmpty;
+            printBtn.classList.toggle('opacity-50', isCartEmpty);
+            printBtn.classList.toggle('grayscale', isCartEmpty);
         }
         lucide.createIcons();
     },
@@ -1726,8 +1757,10 @@ const screens = {
     addProductByBarcode(barcode) {
         const product = state.products.find(p => p.barcode === barcode);
         if (product) {
-            this.addToCart(product);
-            ui.notify(`Added: ${product.name}`);
+            const added = this.addToCart(product);
+            if (added) {
+                ui.notify(`Added: ${product.name}`);
+            }
         } else {
             ui.notify(`Product not found: ${barcode}`, 'error');
         }
@@ -2026,10 +2059,10 @@ const screens = {
                                  style="width: ${Math.min(100, (p.stock_quantity / (p.min_stock_level * 10)) * 100)}%"></div>
                         </div>
                         <div class="flex items-center gap-1 md:gap-2">
-                             <span class="text-[9px] md:text-[10px] font-bold ${p.stock_quantity > p.min_stock_level ? 'text-zinc-600' : 'text-red-600'}">${p.stock_quantity} units</span>
+                             <span class="text-[9px] md:text-[10px] font-bold ${p.stock_quantity > p.min_stock_level ? 'text-zinc-600' : 'text-red-600'}">${p.stock_quantity <= 0 ? 'OUT OF STOCK' : `${p.stock_quantity} units`}</span>
                              ${p.stock_quantity <= p.min_stock_level ? `
                                 <span class="flex items-center gap-1 text-[7px] md:text-[8px] font-black text-red-500 uppercase px-1 py-0.5 bg-red-50 rounded">
-                                    <i data-lucide="alert-triangle" class="w-2 h-2"></i> LOW
+                                    <i data-lucide="alert-triangle" class="w-2 h-2"></i> ${p.stock_quantity <= 0 ? 'EMPTY' : 'LOW'}
                                 </span>
                              ` : ''}
                         </div>
@@ -2135,7 +2168,7 @@ const screens = {
 
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Initial Stock</label>
-                    <input type="number" id="p-stock" value="${p?.stock_quantity || 0}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
+                    <input type="number" id="p-stock" value="${p?.stock_quantity || 0}" min="0" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-bold">
                 </div>
 
                 <div class="space-y-1.5">
@@ -2165,8 +2198,8 @@ const screens = {
                 category_id: document.getElementById('p-category').value || null,
                 cost_price: parseFloat(document.getElementById('p-cost').value) || 0,
                 selling_price: parseFloat(document.getElementById('p-price').value) || 0,
-                stock_quantity: parseInt(document.getElementById('p-stock').value) || 0,
-                min_stock_level: parseInt(document.getElementById('p-min').value) || 0,
+                stock_quantity: Math.max(0, parseInt(document.getElementById('p-stock').value) || 0),
+                min_stock_level: Math.max(0, parseInt(document.getElementById('p-min').value) || 0),
                 expiration_date: document.getElementById('p-expiry').value || null,
                 image_url: imageUrl || null
             };
