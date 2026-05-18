@@ -2362,6 +2362,7 @@ const screens = {
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase text-emerald-600">Selling Price (₱)</label>
                     <input type="number" id="p-price" value="${p?.selling_price || 0}" step="0.01" class="w-full h-11 px-3 bg-emerald-50 border border-emerald-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/10 font-black text-emerald-700">
+                    <p class="text-[10px] text-zinc-400 font-medium">Must be higher than Cost Price</p>
                 </div>
 
                 <div class="space-y-1.5">
@@ -2406,6 +2407,9 @@ const screens = {
 
             if (!data.name) throw new Error("Product name is required");
             if (!data.barcode) throw new Error("Barcode is required");
+            if (data.selling_price <= data.cost_price) {
+                throw new Error("Selling price must be greater than the cost price to ensure profitability");
+            }
 
             if (p) {
                 await api.put(`/products/${p.id}`, data);

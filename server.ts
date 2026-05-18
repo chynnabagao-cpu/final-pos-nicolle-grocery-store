@@ -404,6 +404,11 @@ app.get("/api/products", authenticate, async (req, res) => {
 
 app.post("/api/products", authenticate, restrictTo('admin'), async (req, res) => {
   const { name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date } = req.body;
+  
+  if (selling_price <= cost_price) {
+    return res.status(400).json({ error: "Selling price must be greater than the cost price" });
+  }
+
   try {
     const result = await db.execute(`
       INSERT INTO products (name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date)
@@ -417,6 +422,11 @@ app.post("/api/products", authenticate, restrictTo('admin'), async (req, res) =>
 
 app.put("/api/products/:id", authenticate, restrictTo('admin'), async (req, res) => {
   const { name, barcode, category_id, cost_price, selling_price, stock_quantity, min_stock_level, image_url, expiration_date } = req.body;
+
+  if (selling_price <= cost_price) {
+    return res.status(400).json({ error: "Selling price must be greater than the cost price" });
+  }
+
   try {
     await db.execute(`
       UPDATE products 
