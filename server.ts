@@ -287,6 +287,25 @@ async function initializeSchema() {
     console.log("✔ Admin account verified and password reset to: admin123");
   }
 
+  // Seed default cashiers for testing/convenience (including the typo version from user request)
+  const defaultCashiers = [
+    { username: 'cashier1', full_name: 'Cashier 1', password: 'password123' },
+    { username: 'chashier 1', full_name: 'Cashier 1 (Typo)', password: 'password123' }, // Support the specific typo-laden account requested
+    { username: 'cashier 1', full_name: 'Cashier 1', password: 'password123' }
+  ];
+
+  for (const c of defaultCashiers) {
+    const [rows] = await pool.query("SELECT id FROM users WHERE username = ?", [c.username]) as any[];
+    if (rows.length === 0) {
+      const hash = bcrypt.hashSync(c.password, 10);
+      await pool.execute(
+        "INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)",
+        [c.username, hash, "user", c.full_name]
+      );
+      console.log(`✔ User account created: ${c.username} / ${c.password}`);
+    }
+  }
+
   console.log("✔ Database schema ready");
 }
 

@@ -38,7 +38,7 @@ const state = {
     cartDiscount: 0,                                       // Manual discount applied to total
     cartDiscountType: 'fixed',                            // 'fixed' or 'percent'
     cartDiscountValue: 0,                                  // Raw value of manual discount
-    offlineQueue: JSON.parse(localStorage.getItem('offline_queue')) || [], // Sales waiting for sync
+    offlineQueue: (() => { try { return JSON.parse(localStorage.getItem('offline_queue')) || [] } catch(e) { return [] } })(), 
     isOffline: !navigator.onLine,                         // Current network status
     dashboardStats: null,                                 // Cached dashboard metrics
     dashboardDate: new Date().toISOString().split('T')[0], // Selected date for dashboard stats
@@ -407,7 +407,7 @@ const ui = {
         });
         lucide.createIcons();
     },
-    showModal(title, contentHTML, onSave, saveLabel = "Save Changes", sizeClass = "max-w-lg") {
+    showModal(title, contentHTML, onSave, saveLabel = "Save Changes", sizeClass = "max-w-lg", onClose = null) {
         const container = document.getElementById('modal-container');
         const content = document.getElementById('modal-content');
         
@@ -431,7 +431,10 @@ const ui = {
         container.classList.remove('hidden');
         lucide.createIcons();
         
-        const close = () => container.classList.add('hidden');
+        const close = () => {
+            container.classList.add('hidden');
+            if (onClose) onClose();
+        };
         document.getElementById('close-modal').onclick = close;
         document.getElementById('modal-cancel').onclick = close;
         document.getElementById('modal-overlay').onclick = close;
@@ -608,9 +611,16 @@ const screens = {
         try {
             const dateQuery = state.dashboardDate ? `?date=${state.dashboardDate}` : '';
             const res = await api.get(`/reports/dashboard${dateQuery}`);
-            const data = res.data;
+            const data = res.data || {};
             state.dashboardStats = data;
             
+            // Ensure nested objects exist to avoid undefined errors
+            const stats = data.stats || {};
+            const todaySales = stats.todaySales || { total: 0 };
+            const totalOrders = stats.totalOrders || { count: 0 };
+            const lowStock = stats.lowStock || { count: 0 };
+            const expiringSoon = stats.expiringSoon || { count: 0 };
+
             root.innerHTML = `
                 <div class="space-y-6">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -630,10 +640,10 @@ const screens = {
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        ${this.card(state.dashboardDate === new Date().toISOString().split('T')[0] ? "Today's Sales" : "Sales Total", `₱${Number(data.stats?.todaySales?.total || 0).toFixed(2)}`, 'text-zinc-900', 'banknote')}
-                        ${this.card("Orders", data.stats?.totalOrders?.count || 0, 'text-zinc-900', 'shopping-bag')}
-                        ${this.card("Low Stock", data.stats?.lowStock?.count || 0, (data.stats?.lowStock?.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900', 'alert-triangle')}
-                        ${this.card("Expiring Soon", data.stats?.expiringSoon?.count || 0, (data.stats?.expiringSoon?.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900', 'calendar-x')}
+                        ${this.card(state.dashboardDate === new Date().toISOString().split('T')[0] ? "Today's Sales" : "Sales Total", `₱${Number(todaySales.total || 0).toFixed(2)}`, 'text-zinc-900', 'banknote')}
+                        ${this.card("Orders", totalOrders.count || 0, 'text-zinc-900', 'shopping-bag')}
+                        ${this.card("Low Stock", lowStock.count || 0, (lowStock.count || 0) > 0 ? 'text-amber-500' : 'text-zinc-900', 'alert-triangle')}
+                        ${this.card("Expiring Soon", expiringSoon.count || 0, (expiringSoon.count || 0) > 0 ? 'text-red-500' : 'text-zinc-900', 'calendar-x')}
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1382,9 +1392,9 @@ const screens = {
         } catch (err) { 
             console.warn("Offline or API Error, loading from cache:", err);
             // Fallback to local cache if network fails
-            state.products = JSON.parse(localStorage.getItem('cached_products')) || [];
-            state.categories = JSON.parse(localStorage.getItem('cached_categories')) || [];
-            state.discounts = JSON.parse(localStorage.getItem('cached_discounts')) || [];
+            state.products = (() => { try { return JSON.parse(localStorage.getItem('cached_products')) || [] } catch(e) { return [] } })();
+            state.categories = (() => { try { return JSON.parse(localStorage.getItem('cached_categories')) || [] } catch(e) { return [] } })();
+            state.discounts = (() => { try { return JSON.parse(localStorage.getItem('cached_discounts')) || [] } catch(e) { return [] } })();
         } finally {
             this.renderCategoriesChips();
             this.renderProductsGrid();
@@ -1777,6 +1787,7 @@ const screens = {
     startInlineScanner() {
         const scannerContainer = document.getElementById('p-inline-scanner');
         if (scannerContainer) {
+            this.stopProductCamera(); // Close camera if open
             scannerContainer.classList.remove('hidden');
             scannerContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
             barcodeScanner.startCamera('p-inline-view', (code) => {
@@ -1794,6 +1805,66 @@ const screens = {
         const scannerContainer = document.getElementById('p-inline-scanner');
         if (scannerContainer) scannerContainer.classList.add('hidden');
         barcodeScanner.stopCamera();
+    },
+    async startProductCamera() {
+        const container = document.getElementById('p-camera-section');
+        const video = document.getElementById('p-camera-view');
+        if (!container || !video) return;
+
+        this.stopInlineScanner(); // Close scanner if open
+        container.classList.remove('hidden');
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
+            video.srcObject = stream;
+            state._productCameraStream = stream;
+        } catch (err) {
+            console.error("Product camera failed:", err);
+            ui.notify("Could not access camera", "error");
+            container.classList.add('hidden');
+        }
+    },
+    stopProductCamera() {
+        const container = document.getElementById('p-camera-section');
+        const video = document.getElementById('p-camera-view');
+        if (container) container.classList.add('hidden');
+        
+        if (state._productCameraStream) {
+            state._productCameraStream.getTracks().forEach(track => track.stop());
+            state._productCameraStream = null;
+        }
+        if (video) video.srcObject = null;
+    },
+    captureProductPhoto() {
+        const video = document.getElementById('p-camera-view');
+        const canvas = document.getElementById('p-camera-canvas');
+        const preview = document.getElementById('p-image-preview');
+        const urlInput = document.getElementById('p-image-url');
+
+        if (!video || !canvas || !preview) return;
+
+        // Set canvas to video size
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Draw current frame
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Update UI
+        preview.innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+        if (urlInput) urlInput.value = dataUrl;
+
+        // Cleanup
+        this.stopProductCamera();
+        ui.notify("Photo captured!");
     },
     async renderInventory() {
         const root = document.getElementById('screen-content');
@@ -2123,7 +2194,24 @@ const screens = {
                         </div>
                     </div>
                     <input type="file" id="p-image-input" class="hidden" accept="image/*">
-                    <p class="text-[10px] font-black text-zinc-400 mt-4 uppercase tracking-widest">Optional: Upload or Paste URL below</p>
+                    <div class="flex gap-2 mt-4">
+                        <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest self-center">Upload, URL or</p>
+                        <button type="button" onclick="screens.startProductCamera()" class="h-9 px-4 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-zinc-900/20">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Open Camera
+                        </button>
+                    </div>
+                </div>
+
+                <div id="p-camera-section" class="hidden md:col-span-2 bg-zinc-900 rounded-3xl overflow-hidden p-4 space-y-4 shadow-inner relative">
+                    <video id="p-camera-view" class="w-full aspect-video md:aspect-[21/9] bg-black rounded-2xl overflow-hidden object-cover" autoplay playsinline></video>
+                    <canvas id="p-camera-canvas" class="hidden"></canvas>
+                    <div class="flex justify-between items-center">
+                         <span class="text-[10px] font-black text-white/50 uppercase tracking-widest text-emerald-400">Camera Active</span>
+                         <div class="flex gap-2">
+                             <button type="button" onclick="screens.captureProductPhoto()" class="px-6 py-1.5 bg-emerald-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-emerald-500/20">Capture Photo</button>
+                             <button type="button" onclick="screens.stopProductCamera()" class="px-3 py-1.5 bg-zinc-700 text-white text-[10px] font-bold rounded-lg uppercase">Cancel</button>
+                         </div>
+                    </div>
                 </div>
 
                 <div id="p-inline-scanner" class="hidden md:col-span-2 bg-zinc-900 rounded-3xl overflow-hidden p-4 space-y-4 shadow-inner relative">
@@ -2222,7 +2310,10 @@ const screens = {
                 await api.post('/products', data);
             }
             this.renderInventory();
-        }, "Save Product", "max-w-2xl");
+        }, "Save Product", "max-w-2xl", () => {
+            this.stopProductCamera();
+            this.stopInlineScanner();
+        });
 
         // Setup image upload triggers
         const preview = document.getElementById('p-image-preview');
@@ -2624,12 +2715,12 @@ const screens = {
                 api.get('/reports/analytics')
             ]);
             
-            const sales = salesRes.data;
-            const analytics = analyticsRes.data;
+            const sales = Array.isArray(salesRes.data) ? salesRes.data : [];
+            const analytics = analyticsRes.data || {};
             state.reportsData = { sales, analytics };
             
             // Empty state handler - check if we have any meaningful data
-            if (!analytics || !analytics.topProducts || !analytics.monthlyTrends || ((analytics.monthlyTrends || []).length === 0 && (analytics.topProducts || []).length === 0)) {
+            if (!analytics || !Array.isArray(analytics.topProducts) || !Array.isArray(analytics.monthlyTrends) || (analytics.monthlyTrends.length === 0 && analytics.topProducts.length === 0)) {
                 root.innerHTML = `
                     <div class="flex flex-col items-center justify-center p-20 text-center space-y-4">
                         <div class="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-300">
