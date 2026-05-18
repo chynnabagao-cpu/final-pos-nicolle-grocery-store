@@ -162,7 +162,7 @@ async function initializeSchema() {
       stock_quantity INT DEFAULT 0,
       min_stock_level INT DEFAULT 10,
       expiration_date DATE DEFAULT NULL,
-      image_url TEXT DEFAULT NULL,
+      image_url LONGTEXT DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`,
 
@@ -210,7 +210,7 @@ async function initializeSchema() {
 
     `CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(255) NOT NULL,
-      value TEXT NOT NULL,
+      value LONGTEXT NOT NULL,
       PRIMARY KEY (\`key\`)
     );`
   ];
@@ -237,11 +237,28 @@ async function initializeSchema() {
       await pool.execute("ALTER TABLE sales ADD COLUMN payment_details TEXT DEFAULT NULL AFTER change_given");
     }
 
+    const [settingsCols] = await pool.query("SHOW COLUMNS FROM settings") as any[];
+    const settingsColNames = settingsCols.map((c: any) => c.Field);
+    if (settingsColNames.includes('value')) {
+      const valCol = settingsCols.find((c: any) => c.Field === 'value');
+      if (valCol && valCol.Type.toLowerCase() !== 'longtext') {
+        console.log("🛠 Patching 'settings' table: Upgrading 'value' to LONGTEXT...");
+        await pool.execute("ALTER TABLE settings MODIFY COLUMN value LONGTEXT NOT NULL");
+      }
+    }
+
     const [productCols] = await pool.query("SHOW COLUMNS FROM products") as any[];
     const prodColNames = productCols.map((c: any) => c.Field);
     if (!prodColNames.includes('image_url')) {
       console.log("🛠 Patching 'products' table: Adding 'image_url' column...");
-      await pool.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT NULL");
+      await pool.execute("ALTER TABLE products ADD COLUMN image_url LONGTEXT DEFAULT NULL");
+    } else {
+      // Ensure it's LONGTEXT to support base64 images
+      const imageCol = productCols.find((c: any) => c.Field === 'image_url');
+      if (imageCol && imageCol.Type.toLowerCase() !== 'longtext') {
+        console.log("🛠 Patching 'products' table: Upgrading 'image_url' to LONGTEXT...");
+        await pool.execute("ALTER TABLE products MODIFY COLUMN image_url LONGTEXT DEFAULT NULL");
+      }
     }
   } catch (err) {
     console.warn("Could not verify sales table columns automatically. If you see errors, please check your database schema.");
@@ -463,7 +480,7 @@ app.post("/api/sales", authenticate, async (req, res) => {
       `, [saleId, item.product_id, item.quantity, item.unit_price, item.discount_amount, item.subtotal]);
       
       // Update inventory
-      await db.execute("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?", [item.quantity, item.product_id]);
+      await db.execute("UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id = ?", [item.quantity, item.product_id]);
       
       // Log inventory change
       await db.execute("INSERT INTO inventory_logs (product_id, change_amount, reason) VALUES (?, ?, ?)", [item.product_id, -item.quantity, `Sale #${saleId}`]);

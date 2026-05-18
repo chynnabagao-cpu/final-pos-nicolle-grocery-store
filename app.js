@@ -513,22 +513,17 @@ const ui = {
         if (!file.type.startsWith('image/')) {
             throw new Error("File must be an image");
         }
-        if (file.size > 10 * 1024 * 1024) {
-            throw new Error("Image too large. Max 10MB");
+        // Limit to 2MB for base64 storage to avoid massive database bloat
+        if (file.size > 2 * 1024 * 1024) {
+            throw new Error("Image too large for database storage. Max 2MB");
         }
 
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        try {
-            const res = await api.post('/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            return res.data.imageUrl;
-        } catch (err) {
-            console.error('Upload Error:', err);
-            throw new Error(err.response?.data?.error || "Image upload failed");
-        }
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error("Image reading failed"));
+            reader.readAsDataURL(file);
+        });
     },
     notify(message, type = 'success') {
         const container = document.getElementById('notification-container') || (() => {
