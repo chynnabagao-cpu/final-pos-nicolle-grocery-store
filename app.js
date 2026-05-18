@@ -520,7 +520,8 @@ const ui = {
                 <h3 class="text-xl font-black text-zinc-900 truncate pr-2">${title}</h3>
                 <button id="close-modal" class="p-2 hover:bg-zinc-100 rounded-xl text-zinc-400 hover:text-zinc-900 transition-all active:scale-95"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div class="flex-1 overflow-y-auto p-6 md:px-8 md:pb-4 space-y-5">
+            <div class="flex-1 overflow-y-auto p-6 md:px-8 md:pb-4 space-y-5" id="modal-scroll-area">
+                <div id="modal-error" class="hidden p-4 mb-2 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-[11px] font-bold animate-in fade-in slide-in-from-top-4 duration-300"></div>
                 ${contentHTML}
             </div>
             <div class="p-6 md:p-8 pt-4 md:pt-4 border-t border-zinc-50 flex flex-col sm:flex-row gap-3 shrink-0 bg-white/80 backdrop-blur-md">
@@ -543,6 +544,11 @@ const ui = {
         const saveBtn = document.getElementById('modal-save');
         saveBtn.onclick = async () => {
             if (saveBtn.disabled) return;
+            
+            // Hide previous errors
+            const errorEl = document.getElementById('modal-error');
+            if (errorEl) errorEl.classList.add('hidden');
+
             saveBtn.disabled = true;
             const originalText = saveBtn.innerText;
             saveBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span>';
@@ -570,7 +576,14 @@ const ui = {
                     errorMsg = err.message;
                 }
                 
-                this.notify(errorMsg, 'error');
+                const errorEl = document.getElementById('modal-error');
+                if (errorEl) {
+                    errorEl.innerText = errorMsg;
+                    errorEl.classList.remove('hidden');
+                    document.getElementById('modal-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    this.notify(errorMsg, 'error');
+                }
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.innerText = originalText;
