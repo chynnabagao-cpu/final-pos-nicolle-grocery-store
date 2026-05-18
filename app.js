@@ -617,14 +617,49 @@ const ui = {
         if (!file.type.startsWith('image/')) {
             throw new Error("File must be an image");
         }
-        // Limit to 2MB for base64 storage to avoid massive database bloat
-        if (file.size > 2 * 1024 * 1024) {
-            throw new Error("Image too large for database storage. Max 2MB");
-        }
 
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Create canvas for resizing
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Max dimensions
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+                    
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Start with high quality and lower if still too large
+                    let quality = 0.8;
+                    let result = canvas.toDataURL('image/jpeg', quality);
+                    
+                    // Basic loop to ensure size is under ~2MB (though resizing already helps a lot)
+                    // 2MB in base64 is roughly 1.5MB binary. 1200px jpeg at 0.8 quality is usually sub 500KB.
+                    resolve(result);
+                };
+                img.onerror = () => reject(new Error("Failed to load image for resizing"));
+                img.src = e.target.result;
+            };
             reader.onerror = (e) => reject(new Error("Image reading failed"));
             reader.readAsDataURL(file);
         });
@@ -3767,7 +3802,7 @@ const screens = {
             };
             if (password) payload.password = password;
 
-            const res = await api.put('/api/profile', payload);
+            const res = await api.put('/profile', payload);
             if (res.data.success) {
                 // Update local state
                 state.user = { ...state.user, ...res.data.user };

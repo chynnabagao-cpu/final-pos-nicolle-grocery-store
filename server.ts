@@ -144,7 +144,7 @@ async function initializeSchema() {
       role VARCHAR(50) NOT NULL,
       full_name VARCHAR(255) NOT NULL,
       phone VARCHAR(20) DEFAULT NULL,
-      avatar_url TEXT DEFAULT NULL
+      avatar_url LONGTEXT DEFAULT NULL
     );`,
 
     `CREATE TABLE IF NOT EXISTS categories (
@@ -266,7 +266,13 @@ async function initializeSchema() {
     const userColNames = userCols.map((c: any) => c.Field);
     if (!userColNames.includes('avatar_url')) {
       console.log("🛠 Patching 'users' table: Adding 'avatar_url' column...");
-      await pool.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT NULL AFTER phone");
+      await pool.execute("ALTER TABLE users ADD COLUMN avatar_url LONGTEXT DEFAULT NULL AFTER phone");
+    } else {
+      const avatarCol = userCols.find((c: any) => c.Field === 'avatar_url');
+      if (avatarCol && !avatarCol.Type.toLowerCase().includes('longtext')) {
+        console.log("🛠 Patching 'users' table: Upgrading 'avatar_url' to LONGTEXT...");
+        await pool.execute("ALTER TABLE users MODIFY COLUMN avatar_url LONGTEXT DEFAULT NULL");
+      }
     }
   } catch (err) {
     console.warn("Could not verify sales table columns automatically. If you see errors, please check your database schema.");
@@ -665,10 +671,15 @@ app.put("/api/profile", authenticate, async (req, res) => {
     }
     
     // Fetch updated user info to return
-    const updatedUser = await db.get<any>("SELECT id, username, role, full_name, avatar_url FROM users WHERE id = ?", [userId]);
+    const updatedUser = await db.get<any>(`
+      SELECT id, username, role, full_name, avatar_url, (SELECT name FROM stores LIMIT 1) as store_name 
+      FROM users 
+      WHERE id = ?
+    `, [userId]);
     res.json({ success: true, user: updatedUser });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error("[PROFILE_UPDATE_ERROR]", error);
+    res.status(400).json({ error: `Update failed: ${error.message}` });
   }
 });
 
