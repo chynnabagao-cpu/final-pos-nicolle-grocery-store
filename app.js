@@ -1806,7 +1806,7 @@ const screens = {
         if (scannerContainer) scannerContainer.classList.add('hidden');
         barcodeScanner.stopCamera();
     },
-    async startProductCamera() {
+    async startProductCamera(facingMode = 'environment') {
         const container = document.getElementById('p-camera-section');
         const video = document.getElementById('p-camera-view');
         if (!container || !video) return;
@@ -1815,18 +1815,35 @@ const screens = {
         container.classList.remove('hidden');
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+        // Stop current stream if any before switching
+        if (state._productCameraStream) {
+            state._productCameraStream.getTracks().forEach(track => track.stop());
+        }
+
         try {
+            state._productCameraMode = facingMode;
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" },
+                video: { facingMode: facingMode },
                 audio: false
             });
             video.srcObject = stream;
             state._productCameraStream = stream;
+            
+            // Mirror if front camera
+            if (facingMode === 'user') {
+                video.style.transform = 'scaleX(-1)';
+            } else {
+                video.style.transform = 'scaleX(1)';
+            }
         } catch (err) {
             console.error("Product camera failed:", err);
             ui.notify("Could not access camera", "error");
             container.classList.add('hidden');
         }
+    },
+    toggleProductCamera() {
+        const newMode = state._productCameraMode === 'environment' ? 'user' : 'environment';
+        this.startProductCamera(newMode);
     },
     stopProductCamera() {
         const container = document.getElementById('p-camera-section');
@@ -1838,6 +1855,7 @@ const screens = {
             state._productCameraStream = null;
         }
         if (video) video.srcObject = null;
+        state._productCameraMode = null;
     },
     captureProductPhoto() {
         const video = document.getElementById('p-camera-view');
@@ -1853,6 +1871,13 @@ const screens = {
 
         // Draw current frame
         const ctx = canvas.getContext('2d');
+        
+        // Mirror if front camera
+        if (state._productCameraMode === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         // Convert to data URL
@@ -2206,7 +2231,12 @@ const screens = {
                     <video id="p-camera-view" class="w-full aspect-video md:aspect-[21/9] bg-black rounded-2xl overflow-hidden object-cover" autoplay playsinline></video>
                     <canvas id="p-camera-canvas" class="hidden"></canvas>
                     <div class="flex justify-between items-center">
-                         <span class="text-[10px] font-black text-white/50 uppercase tracking-widest text-emerald-400">Camera Active</span>
+                         <div class="flex items-center gap-2">
+                             <span class="text-[10px] font-black text-white/50 uppercase tracking-widest text-emerald-400">Camera Active</span>
+                             <button type="button" onclick="screens.toggleProductCamera()" class="p-1.5 text-white/60 hover:text-white transition-colors">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                             </button>
+                         </div>
                          <div class="flex gap-2">
                              <button type="button" onclick="screens.captureProductPhoto()" class="px-6 py-1.5 bg-emerald-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-emerald-500/20">Capture Photo</button>
                              <button type="button" onclick="screens.stopProductCamera()" class="px-3 py-1.5 bg-zinc-700 text-white text-[10px] font-bold rounded-lg uppercase">Cancel</button>
