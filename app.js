@@ -2219,9 +2219,12 @@ const screens = {
                         </div>
                     </div>
                     <input type="file" id="p-image-input" class="hidden" accept="image/*">
-                    <div class="flex gap-2 mt-4">
-                        <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest self-center">Upload, URL or</p>
-                        <button type="button" onclick="screens.startProductCamera()" class="h-9 px-4 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-zinc-900/20">
+                    <input type="file" id="p-camera-native" class="hidden" accept="image/*" capture="environment">
+                    <div class="flex flex-wrap gap-2 mt-4 justify-center">
+                        <button type="button" onclick="document.getElementById('p-image-input').click()" class="h-9 px-4 bg-white border border-zinc-200 text-zinc-900 rounded-lg hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload
+                        </button>
+                        <button type="button" onclick="document.getElementById('p-camera-native').click()" class="h-9 px-4 bg-zinc-900 text-white rounded-lg hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-zinc-900/20">
                             <i data-lucide="camera" class="w-3.5 h-3.5"></i> Open Camera
                         </button>
                     </div>
@@ -2310,12 +2313,14 @@ const screens = {
             </div>
         `, async () => {
             const imageInput = document.getElementById('p-image-input');
+            const nativeCamera = document.getElementById('p-camera-native');
             const imageUrlInput = document.getElementById('p-image-url');
             let imageUrl = imageUrlInput.value.trim();
             
-            // If a file is selected, upload it (wins over URL input only if a file is present)
-            if (imageInput.files[0]) {
-                const uploadedUrl = await ui.uploadImage(imageInput.files[0]);
+            // If a file is selected, upload it
+            const file = imageInput.files[0] || nativeCamera.files[0];
+            if (file) {
+                const uploadedUrl = await ui.uploadImage(file);
                 if (uploadedUrl) imageUrl = uploadedUrl;
             }
 
@@ -2348,22 +2353,26 @@ const screens = {
         // Setup image upload triggers
         const preview = document.getElementById('p-image-preview');
         const input = document.getElementById('p-image-input');
+        const nativeCamera = document.getElementById('p-camera-native');
         const urlInput = document.getElementById('p-image-url');
+
+        const handleFileSelect = (file) => {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (re) => {
+                    preview.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">`;
+                    if (urlInput) urlInput.value = ''; // Clear URL if file chosen
+                };
+                reader.readAsDataURL(file);
+            }
+        };
 
         if (preview && input) {
             preview.onclick = () => input.click();
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        preview.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">`;
-                    };
-                    reader.readAsDataURL(file);
-                    // Clear URL input when a file is chosen to avoid confusion
-                    if (urlInput) urlInput.value = '';
-                }
-            };
+            input.onchange = (e) => handleFileSelect(e.target.files[0]);
+        }
+        if (nativeCamera) {
+            nativeCamera.onchange = (e) => handleFileSelect(e.target.files[0]);
         }
 
         if (urlInput && preview) {
