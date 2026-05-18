@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `role` varchar(50) NOT NULL,
   `full_name` varchar(255) NOT NULL,
   `phone` varchar(20) DEFAULT NULL,
+  `avatar_url` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -83,8 +84,9 @@ CREATE TABLE IF NOT EXISTS `sales` (
   `total_amount` decimal(10,2) NOT NULL,
   `discount_amount` decimal(10,2) DEFAULT 0.00,
   `payment_method` varchar(50) NOT NULL,
-  `reference_number` varchar(255) DEFAULT NULL,
-  `notes` text DEFAULT NULL,
+  `cash_received` decimal(10,2) DEFAULT NULL,
+  `change_given` decimal(10,2) DEFAULT NULL,
+  `payment_details` text DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)

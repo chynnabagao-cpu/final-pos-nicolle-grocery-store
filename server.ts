@@ -143,7 +143,8 @@ async function initializeSchema() {
       password TEXT NOT NULL,
       role VARCHAR(50) NOT NULL,
       full_name VARCHAR(255) NOT NULL,
-      phone VARCHAR(20) DEFAULT NULL
+      phone VARCHAR(20) DEFAULT NULL,
+      avatar_url TEXT DEFAULT NULL
     );`,
 
     `CREATE TABLE IF NOT EXISTS categories (
@@ -259,6 +260,13 @@ async function initializeSchema() {
         console.log("🛠 Patching 'products' table: Upgrading 'image_url' to LONGTEXT...");
         await pool.execute("ALTER TABLE products MODIFY COLUMN image_url LONGTEXT DEFAULT NULL");
       }
+    }
+    
+    const [userCols] = await pool.query("SHOW COLUMNS FROM users") as any[];
+    const userColNames = userCols.map((c: any) => c.Field);
+    if (!userColNames.includes('avatar_url')) {
+      console.log("🛠 Patching 'users' table: Adding 'avatar_url' column...");
+      await pool.execute("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT NULL AFTER phone");
     }
   } catch (err) {
     console.warn("Could not verify sales table columns automatically. If you see errors, please check your database schema.");
@@ -380,6 +388,7 @@ app.post("/api/login", async (req, res) => {
         username: user.username, 
         role: user.role, 
         full_name: user.full_name, 
+        avatar_url: user.avatar_url,
         store_name: user.store_name || "Lorna POS"
       } 
     });
@@ -591,7 +600,7 @@ app.get("/api/sales/:id", authenticate, async (req, res) => {
 app.get("/api/users", authenticate, restrictTo('admin'), async (req, res) => {
   try {
     const users = await db.query(`
-      SELECT id, username, full_name, role, phone 
+      SELECT id, username, full_name, role, phone, avatar_url 
       FROM users
     `);
     res.json(users);
@@ -601,13 +610,13 @@ app.get("/api/users", authenticate, restrictTo('admin'), async (req, res) => {
 });
 
 app.post("/api/users", authenticate, restrictTo('admin'), async (req, res) => {
-  const { username, password, full_name, role, phone } = req.body;
+  const { username, password, full_name, role, phone, avatar_url } = req.body;
   try {
     const hashedPassword = bcrypt.hashSync(password, 10);
     const result = await db.execute(`
-      INSERT INTO users (username, password, full_name, role, phone)
-      VALUES (?, ?, ?, ?, ?)
-    `, [username, hashedPassword, full_name, role, phone]);
+      INSERT INTO users (username, password, full_name, role, phone, avatar_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [username, hashedPassword, full_name, role, phone, avatar_url || null]);
     res.json({ id: result.insertId });
   } catch (error: any) {
     res.status(400).json({ error: "Username already exists or invalid data" });
@@ -615,22 +624,49 @@ app.post("/api/users", authenticate, restrictTo('admin'), async (req, res) => {
 });
 
 app.put("/api/users/:id", authenticate, restrictTo('admin'), async (req, res) => {
-  const { username, password, full_name, role, phone } = req.body;
+  const { username, password, full_name, role, phone, avatar_url } = req.body;
   const { id } = req.params;
   try {
     if (password) {
       const hashedPassword = bcrypt.hashSync(password, 10);
       await db.execute(`
-        UPDATE users SET username = ?, password = ?, full_name = ?, role = ?, phone = ?
+        UPDATE users SET username = ?, password = ?, full_name = ?, role = ?, phone = ?, avatar_url = ?
         WHERE id = ?
-      `, [username, hashedPassword, full_name, role, phone, id]);
+      `, [username, hashedPassword, full_name, role, phone, avatar_url || null, id]);
     } else {
       await db.execute(`
-        UPDATE users SET username = ?, full_name = ?, role = ?, phone = ?
+        UPDATE users SET username = ?, full_name = ?, role = ?, phone = ?, avatar_url = ?
         WHERE id = ?
-      `, [username, full_name, role, phone, id]);
+      `, [username, full_name, role, phone, avatar_url || null, id]);
     }
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// User Self-Profile Updates
+app.put("/api/profile", authenticate, async (req, res) => {
+  const { full_name, phone, avatar_url, password } = req.body;
+  const userId = req.user!.id;
+
+  try {
+    if (password) {
+      const hashedPassword = bcrypt.hashSync(password, 10);
+      await db.execute(`
+        UPDATE users SET full_name = ?, phone = ?, avatar_url = ?, password = ?
+        WHERE id = ?
+      `, [full_name, phone, avatar_url || null, hashedPassword, userId]);
+    } else {
+      await db.execute(`
+        UPDATE users SET full_name = ?, phone = ?, avatar_url = ?
+        WHERE id = ?
+      `, [full_name, phone, avatar_url || null, userId]);
+    }
+    
+    // Fetch updated user info to return
+    const updatedUser = await db.get<any>("SELECT id, username, role, full_name, avatar_url FROM users WHERE id = ?", [userId]);
+    res.json({ success: true, user: updatedUser });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

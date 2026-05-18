@@ -351,6 +351,43 @@ const auth = {
         document.getElementById('main-layout').classList.remove('hidden');
         document.getElementById('user-fullname').innerText = state.user.full_name;
         document.getElementById('user-role').innerText = state.user.role.replace('_', ' ');
+
+        // Update sidebar profile
+        const sideName = document.getElementById('side-user-name');
+        const sideRole = document.getElementById('side-user-role');
+        const sideImg = document.getElementById('side-avatar-img');
+        const sideIcon = document.getElementById('side-avatar-icon');
+
+        if (sideName) sideName.innerText = state.user.full_name;
+        if (sideRole) sideRole.innerText = state.user.role.replace('_', ' ');
+
+        if (state.user.avatar_url) {
+            if (sideImg) {
+                sideImg.src = state.user.avatar_url;
+                sideImg.classList.remove('hidden');
+            }
+            if (sideIcon) sideIcon.classList.add('hidden');
+        } else {
+            if (sideImg) {
+                sideImg.src = '';
+                sideImg.classList.add('hidden');
+            }
+            if (sideIcon) sideIcon.classList.remove('hidden');
+        }
+        
+        // Update header avatar
+        const avatarImg = document.getElementById('header-avatar-img');
+        const avatarIcon = document.getElementById('header-avatar-icon');
+        if (state.user.avatar_url) {
+            avatarImg.src = state.user.avatar_url;
+            avatarImg.classList.remove('hidden');
+            avatarIcon.classList.add('hidden');
+        } else {
+            avatarImg.src = '';
+            avatarImg.classList.add('hidden');
+            avatarIcon.classList.remove('hidden');
+        }
+
         // Dynamic branding based on store name
         const storeName = (state.user.store_name?.split(' ')[0] || 'LORNA') + "'S";
         document.getElementById('store-name-display').innerText = storeName;
@@ -2552,9 +2589,11 @@ const screens = {
                     <!-- Registry Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         ${(state.personnel || []).map(u => `
-                            <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm relative overflow-hidden">
+                            <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm relative overflow-hidden group transition-all hover:border-zinc-300">
                                 <div class="flex items-start justify-between mb-4">
-                                    <div class="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200"><i data-lucide="user" class="w-6 h-6"></i></div>
+                                    <div class="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200 overflow-hidden ring-4 ring-zinc-50">
+                                        ${u.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">` : `<i data-lucide="user" class="w-6 h-6"></i>`}
+                                    </div>
                                     <span class="text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter bg-blue-50 text-blue-600">${u.role.replace('_', ' ')}</span>
                                 </div>
                                 <h4 class="font-black text-lg text-zinc-900">${u.full_name}</h4>
@@ -2581,8 +2620,17 @@ const screens = {
     },
     // Modal for personnel account configuration
     openUserModal(u = null) {
+        state._tempUserAvatar = null;
         ui.showModal(u ? "Edit Personnel" : "Add Personnel", `
             <div class="space-y-4">
+                <div class="flex flex-col items-center gap-4 py-2">
+                    <div id="u-avatar-preview" class="w-24 h-24 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-400 border-2 border-zinc-200 overflow-hidden cursor-pointer hover:border-zinc-900 transition-all" onclick="document.getElementById('u-avatar-input').click()">
+                        ${u?.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">` : `<i data-lucide="camera" class="w-8 h-8"></i>`}
+                    </div>
+                    <button type="button" onclick="document.getElementById('u-avatar-input').click()" class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest hover:text-zinc-900 transition-colors">Change Photo</button>
+                    <input type="file" id="u-avatar-input" class="hidden" accept="image/*" onchange="screens.handleUserAvatarUpload(this)">
+                </div>
+
                 <div class="space-y-1.5">
                     <label class="text-xs font-bold text-zinc-500 uppercase">Full Name</label>
                     <input type="text" id="u-fullname" value="${u?.full_name || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5">
@@ -2618,7 +2666,8 @@ const screens = {
                 username: document.getElementById('u-username').value.trim(),
                 password: document.getElementById('u-password').value || undefined,
                 role: document.getElementById('u-role').value,
-                phone: document.getElementById('u-phone').value.trim()
+                phone: document.getElementById('u-phone').value.trim(),
+                avatar_url: state._tempUserAvatar || u?.avatar_url || null
             };
 
             if (!data.full_name) throw new Error("Full name is required");
@@ -2636,6 +2685,19 @@ const screens = {
             }
             this.renderUsers();
         });
+    },
+    // Handles user avatar upload in management modal
+    async handleUserAvatarUpload(input) {
+        if (!input.files || !input.files[0]) return;
+        try {
+            const base64 = await ui.uploadImage(input.files[0]);
+            const preview = document.getElementById('u-avatar-preview');
+            preview.innerHTML = `<img src="${base64}" class="w-full h-full object-cover">`;
+            state._tempUserAvatar = base64;
+            ui.notify("User photo ready", "info");
+        } catch (err) {
+            ui.handleError(err, "Avatar check failed");
+        }
     },
     // Renders the Discounts and Campaigns list
     async renderDiscounts() {
@@ -3539,12 +3601,54 @@ const screens = {
             root.innerHTML = `
                 <div class="max-w-2xl space-y-8 pb-20">
                     <div class="space-y-1">
-                        <h2 class="text-2xl font-bold tracking-tight text-zinc-900">System Settings</h2>
-                        <p class="text-sm text-zinc-500">Manage your store preferences and localized configurations.</p>
+                        <h2 class="text-2xl font-bold tracking-tight text-zinc-900">User Settings</h2>
+                        <p class="text-sm text-zinc-500">Manage your profile and system preferences.</p>
                     </div>
                     
                     <div class="space-y-6">
-                        <!-- Store Layout Settings -->
+                        <!-- User Profile Settings -->
+                        <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-6">
+                            <div class="flex items-center gap-4">
+                                <div class="relative group cursor-pointer" onclick="document.getElementById('profile-avatar-input').click()">
+                                    <div id="profile-avatar-preview" class="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border-2 border-zinc-200 overflow-hidden group-hover:border-zinc-900 transition-all">
+                                        ${state.user.avatar_url ? `<img src="${state.user.avatar_url}" class="w-full h-full object-cover">` : `<i data-lucide="user" class="w-8 h-8"></i>`}
+                                    </div>
+                                    <div class="absolute inset-0 bg-black/40 text-white flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <i data-lucide="camera" class="w-6 h-6"></i>
+                                    </div>
+                                    <input type="file" id="profile-avatar-input" class="hidden" accept="image/*" onchange="screens.handleProfileAvatarUpload(this)">
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-zinc-900">${state.user.username}</h3>
+                                    <p class="text-xs text-zinc-400 font-bold uppercase tracking-widest">${state.user.role}</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-bold text-zinc-500 uppercase text-zinc-400">Full Name</label>
+                                    <input type="text" id="prof-name" value="${state.user.full_name || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-medium">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-bold text-zinc-500 uppercase text-zinc-400">Phone Number</label>
+                                    <input type="text" id="prof-phone" value="${state.user.phone || ''}" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-medium" placeholder="09XX XXX XXXX">
+                                </div>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-bold text-zinc-500 uppercase text-zinc-400">Update Password (Leave blank to keep current)</label>
+                                <div class="relative">
+                                    <input type="password" id="prof-pass" class="w-full h-11 px-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:ring-2 focus:ring-zinc-900/5 font-medium">
+                                    <button type="button" onclick="ui.togglePassword('prof-pass', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button onclick="screens.saveProfile()" id="save-profile-btn" class="w-full h-11 bg-zinc-100 text-zinc-900 font-bold rounded-xl hover:bg-zinc-200 transition-all border border-zinc-200">Update My Profile</button>
+                        </div>
+
+                        <!-- Store Identity Settings (Admin only) -->
                         <div class="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
                             <h3 class="font-bold text-zinc-900 flex items-center gap-2"><i data-lucide="store" class="w-5 h-5"></i> Store Identity</h3>
                             <div class="space-y-4">
@@ -3618,6 +3722,69 @@ const screens = {
         } catch (err) { 
             ui.handleError(err, "Settings load failed");
             root.innerHTML = `<div class="p-10 text-center text-red-500 font-bold bg-red-50 rounded-2xl border border-red-100">Failed to load settings. Please check your connection.</div>`;
+        }
+    },
+    // Handles profile avatar upload
+    async handleProfileAvatarUpload(input) {
+        if (!input.files || !input.files[0]) return;
+        
+        try {
+            const file = input.files[0];
+            const base64 = await ui.uploadImage(file);
+            
+            // Preview locally
+            const preview = document.getElementById('profile-avatar-preview');
+            preview.innerHTML = `<img src="${base64}" class="w-full h-full object-cover">`;
+            
+            // We'll save it to state temporarily or just read it during saveProfile
+            state._tempProfileAvatar = base64;
+            ui.notify("Avatar ready to save", "info");
+        } catch (err) {
+            ui.handleError(err, "Avatar upload failed");
+        }
+    },
+    // Persists user profile changes
+    async saveProfile() {
+        const btn = document.getElementById('save-profile-btn');
+        const fullName = document.getElementById('prof-name').value.trim();
+        const phone = document.getElementById('prof-phone').value.trim();
+        const password = document.getElementById('prof-pass').value;
+        const avatarUrl = state._tempProfileAvatar || state.user.avatar_url;
+
+        if (!fullName) {
+            ui.notify("Full name is required", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full"></span> Updating...';
+
+        try {
+            const payload = {
+                full_name: fullName,
+                phone: phone,
+                avatar_url: avatarUrl
+            };
+            if (password) payload.password = password;
+
+            const res = await api.put('/api/profile', payload);
+            if (res.data.success) {
+                // Update local state
+                state.user = { ...state.user, ...res.data.user };
+                localStorage.setItem('user', JSON.stringify(state.user));
+                
+                // Refresh UI parts
+                auth.showMain(); // This updates the header components
+                this.renderSettings(); // Refresh settings page
+                
+                ui.notify("Profile updated successfully");
+                delete state._tempProfileAvatar;
+            }
+        } catch (err) {
+            ui.handleError(err, "Profile update failed");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Update My Profile';
         }
     },
     // Persists store and GCash configurations to the backend

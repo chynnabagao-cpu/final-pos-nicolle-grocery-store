@@ -90,6 +90,18 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
+
+                <!-- User Profile Summary in Sidebar -->
+                <div class="px-4 py-3 mb-2 mx-2 bg-zinc-50 rounded-2xl border border-zinc-100 flex items-center gap-3 cursor-pointer hover:bg-zinc-100 transition-colors" onclick="router.navigate('settings')">
+                    <div id="side-avatar-container" class="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-zinc-400 overflow-hidden shrink-0">
+                        <i data-lucide="user" id="side-avatar-icon" class="w-5 h-5"></i>
+                        <img id="side-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Profile">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="side-user-name" class="text-xs font-bold text-zinc-900 truncate">User</p>
+                        <p id="side-user-role" class="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mt-0.5">Role</p>
+                    </div>
+                </div>
                 <nav class="flex-1 px-2 space-y-0.5 overflow-y-auto" id="nav-items">
                     <!-- Nav items will be dynamic based on role -->
                 </nav>
@@ -127,8 +139,9 @@
                             <span id="user-fullname" class="text-xs font-bold truncate max-w-[100px]">User</span>
                             <span id="user-role" class="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Role</span>
                         </div>
-                        <div class="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 border border-zinc-100">
-                            <i data-lucide="user" class="w-5 h-5"></i>
+                        <div id="header-avatar-container" class="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200 overflow-hidden cursor-pointer hover:ring-2 hover:ring-zinc-900/5 transition-all" onclick="router.navigate('settings')">
+                            <i data-lucide="user" id="header-avatar-icon" class="w-5 h-5"></i>
+                            <img id="header-avatar-img" class="w-full h-full object-cover hidden" src="" alt="Profile">
                         </div>
                     </div>
                 </header>
