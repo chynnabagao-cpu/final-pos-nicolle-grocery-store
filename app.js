@@ -59,12 +59,47 @@ const offlineManager = {
         // Check initial status on boot
         this.handleOnlineStatus(navigator.onLine);
         
+        // Initialize clock
+        ui.initClock();
+        
         // Background interval to periodically check for pending syncs
         setInterval(() => {
             if (!state.isOffline && state.offlineQueue.length > 0) {
                 this.sync();
             }
         }, 30000);
+        
+        // Real-time synchronization for data (if online)
+        setInterval(() => {
+            if (!state.isOffline && state.user) {
+                this.realtimeSync();
+            }
+        }, 10000); // Sync every 10 seconds
+    },
+    // Triggers background updates to keep UI "real time"
+    async realtimeSync() {
+        try {
+            // Silently check if products or dashboard need update
+            if (state.activeScreen === 'pos' || state.activeScreen === 'inventory') {
+                const res = await api.get('/products');
+                if (JSON.stringify(res.data) !== JSON.stringify(state.products)) {
+                    state.products = res.data;
+                    localStorage.setItem('cached_products', JSON.stringify(state.products));
+                    if (state.activeScreen === 'pos') screens.renderProductsGrid();
+                    if (state.activeScreen === 'inventory') screens.renderInventory();
+                }
+            }
+            if (state.activeScreen === 'dashboard') {
+                const dateQuery = state.dashboardDate ? `?date=${state.dashboardDate}` : '';
+                const res = await api.get(`/reports/dashboard${dateQuery}`);
+                if (JSON.stringify(res.data) !== JSON.stringify(state.dashboardStats)) {
+                    state.dashboardStats = res.data;
+                    screens.renderDashboard();
+                }
+            }
+        } catch (e) {
+            console.warn("Real-time sync failed (silent skip):", e);
+        }
     },
     // Updates internal state and UI indicators based on connectivity
     handleOnlineStatus(isOnline) {
@@ -317,7 +352,10 @@ const auth = {
         document.getElementById('user-fullname').innerText = state.user.full_name;
         document.getElementById('user-role').innerText = state.user.role.replace('_', ' ');
         // Dynamic branding based on store name
-        document.getElementById('store-name-display').innerText = (state.user.store_name?.split(' ')[0] || 'LORNA') + "'S";
+        const storeName = (state.user.store_name?.split(' ')[0] || 'LORNA') + "'S";
+        document.getElementById('store-name-display').innerText = storeName;
+        const mobileStoreDisplay = document.getElementById('store-name-mobile');
+        if (mobileStoreDisplay) mobileStoreDisplay.innerText = state.user.store_name || "LORNA'S STORE";
         
         ui.renderSidebar();
         ui.initSidebar(); 
@@ -353,6 +391,7 @@ const router = {
         const overlay = document.getElementById('sidebar-overlay');
         sidebar?.classList.add('-translate-x-full');
         overlay?.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scroll on navigation
 
         // Toggle visual active state on sidebar links
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -369,6 +408,29 @@ const router = {
 };
 
 const ui = {
+    initClock() {
+        const timeEl = document.getElementById('current-time');
+        const dateEl = document.getElementById('current-date');
+        if (!timeEl || !dateEl) return;
+
+        const update = () => {
+            const now = new Date();
+            timeEl.innerText = now.toLocaleTimeString('en-US', { 
+                hour12: true, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            dateEl.innerText = now.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: '2-digit', 
+                year: 'numeric' 
+            });
+        };
+
+        update();
+        setInterval(update, 1000);
+    },
     initSidebar() {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
@@ -379,9 +441,11 @@ const ui = {
             if (show) {
                 sidebar?.classList.remove('-translate-x-full');
                 overlay?.classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; // Prevent background scroll
             } else {
                 sidebar?.classList.add('-translate-x-full');
                 overlay?.classList.add('hidden');
+                document.body.style.overflow = '';
             }
         };
 
@@ -411,20 +475,20 @@ const ui = {
         const container = document.getElementById('modal-container');
         const content = document.getElementById('modal-content');
         
-        // Dynamic sizing
-        content.className = `relative w-full ${sizeClass} bg-white rounded-3xl shadow-2xl p-6 lg:p-8 animate-in fade-in zoom-in duration-200`;
+        // Use standard flexbox for the internal modal layout - allows for sticky footer/header on mobile
+        content.className = `relative w-full h-full md:h-auto md:max-h-[90vh] ${sizeClass} bg-white rounded-none md:rounded-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in duration-300 overflow-hidden`;
         
         content.innerHTML = `
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-black text-zinc-900">${title}</h3>
-                <button id="close-modal" class="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 transition-colors"><i data-lucide="x" class="w-6 h-6"></i></button>
+            <div class="flex items-center justify-between p-6 md:p-8 border-b border-zinc-50 shrink-0">
+                <h3 class="text-xl font-black text-zinc-900 truncate pr-2">${title}</h3>
+                <button id="close-modal" class="p-2 hover:bg-zinc-100 rounded-xl text-zinc-400 hover:text-zinc-900 transition-all active:scale-95"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div class="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+            <div class="flex-1 overflow-y-auto p-6 md:px-8 md:pb-4 space-y-5">
                 ${contentHTML}
             </div>
-            <div class="mt-8 flex gap-3">
-                <button id="modal-cancel" class="flex-1 h-12 bg-zinc-50 text-zinc-500 font-bold rounded-xl hover:bg-zinc-100 transition-all">Cancel</button>
-                <button id="modal-save" class="flex-1 h-12 bg-zinc-900 text-white font-bold rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-900/20">${saveLabel}</button>
+            <div class="p-6 md:p-8 pt-4 md:pt-4 border-t border-zinc-50 flex flex-col sm:flex-row gap-3 shrink-0 bg-white/80 backdrop-blur-md">
+                <button id="modal-cancel" class="h-12 md:h-14 px-6 bg-zinc-50 text-zinc-500 font-bold rounded-2xl hover:bg-zinc-100 transition-all active:scale-95 text-xs md:text-sm uppercase tracking-widest order-2 sm:order-1 flex items-center justify-center">Cancel</button>
+                <button id="modal-save" class="flex-[2] h-12 md:h-14 bg-zinc-900 text-white font-black rounded-2xl hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/20 active:scale-95 text-xs md:text-sm uppercase tracking-widest order-1 sm:order-2 flex items-center justify-center">${saveLabel}</button>
             </div>
         `;
         
@@ -768,15 +832,14 @@ const screens = {
     },
     card(label, value, colorClass, icon) {
         return `
-            <div class="bg-white p-4 md:p-5 rounded-2xl border border-zinc-200 shadow-sm relative overflow-hidden group hover:border-zinc-300 transition-colors">
-                <div class="absolute -right-2 -top-2 opacity-[0.03] transform rotate-12 group-hover:scale-110 transition-transform">
-                    <i data-lucide="${icon || 'box'}" class="w-16 h-16 md:w-20 md:h-20 text-zinc-900"></i>
+            <div class="bg-white p-5 md:p-6 rounded-2xl md:rounded-3xl border border-zinc-200 shadow-sm hover:shadow-md transition-all group flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-3">
+                <div class="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center ${colorClass} shrink-0 group-hover:scale-110 transition-transform">
+                    <i data-lucide="${icon || 'box'}" class="w-6 md:w-7 h-6 md:h-7 opacity-80"></i>
                 </div>
-                <div class="flex items-center gap-2 mb-1">
-                    <i data-lucide="${icon || 'box'}" class="w-3 md:w-3.5 h-3 md:h-3.5 text-zinc-400"></i>
-                    <p class="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest">${label}</p>
+                <div class="flex-1">
+                    <p class="text-[10px] md:text-xs font-black text-zinc-400 uppercase tracking-widest mb-0.5">${label}</p>
+                    <p class="text-xl md:text-2xl font-black ${colorClass} tracking-tight leading-none">${value}</p>
                 </div>
-                <p class="text-xl md:text-2xl font-black ${colorClass}">${value}</p>
             </div>
         `;
     },
@@ -1407,10 +1470,11 @@ const screens = {
     // Renders the horizontal scrolling category filter list
     renderCategoriesChips() {
         const container = document.getElementById('category-chips');
-        container.innerHTML = '<button onclick="screens.filterCategory(null)" class="px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors bg-zinc-900 text-white">All Items</button>';
+        if (!container) return;
+        container.innerHTML = '<button onclick="screens.filterCategory(null)" class="h-10 md:h-11 px-5 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all bg-zinc-900 text-white shadow-lg shadow-zinc-900/10">All Items</button>';
         (state.categories || []).forEach(cat => {
             const btn = document.createElement('button');
-            btn.className = "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50";
+            btn.className = "h-10 md:h-11 px-5 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:border-zinc-300";
             btn.innerText = cat.name;
             btn.onclick = () => this.filterCategory(cat.id, btn);
             container.appendChild(btn);
@@ -1419,12 +1483,16 @@ const screens = {
     // Switches the active category filter for the product grid
     filterCategory(id, btn) {
         // Toggle visual active state classes
-        document.querySelectorAll('#category-chips button').forEach(b => b.className = "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50");
-        if (btn) btn.className = "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors bg-zinc-900 text-white";
-        else document.querySelector('#category-chips button').className = "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors bg-zinc-900 text-white";
+        document.querySelectorAll('#category-chips button').forEach(b => {
+            b.className = "h-10 md:h-11 px-5 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:border-zinc-300";
+        });
+        const activeClass = "h-10 md:h-11 px-5 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all bg-zinc-900 text-white shadow-lg shadow-zinc-900/10";
+        
+        if (btn) btn.className = activeClass;
+        else document.querySelector('#category-chips button').className = activeClass;
         
         state.activeCategory = id;
-        this.renderProductsGrid(document.getElementById('product-search').value);
+        this.renderProductsGrid(document.getElementById('product-search')?.value || '');
     },
     renderProductsGrid(search = '') {
         const container = document.getElementById('terminal-products');
